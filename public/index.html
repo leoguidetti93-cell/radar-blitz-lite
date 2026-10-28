@@ -46,7 +46,23 @@
   <div class="wf-market-item"><small>VOLATILIDADE</small><b id="wfVolatility">—</b></div>
   <div class="wf-market-item expectation"><small>EXPECTATIVA • PRÓXIMA HORA</small><b id="wfExpectation">—</b></div>
 </div>
-<div class="wf-box"><canvas id="wfChart"></canvas><div id="wfTip"></div></div><div class="wf-foot"><span id="wfRange">CARREGANDO...</span><span>JANELA ATUAL EM TEMPO REAL</span></div></section><section class="terminal">
+<div class="wf-box"><canvas id="wfChart"></canvas><div id="wfTip"></div></div><div class="wf-foot"><span id="wfRange">CARREGANDO...</span><span>JANELA ATUAL EM TEMPO REAL</span></div></section>
+<section class="color-signals" id="colorSignals">
+  <div class="cs-head">
+    <div>
+      <span class="cs-kicker">RADAR DE CORES</span>
+      <h2>LISTA ATUAL • G1 + COBERTURA</h2>
+      <small id="csWindow">PRÓXIMA JANELA</small>
+    </div>
+    <button id="csCopy" type="button">COPIAR LISTA</button>
+  </div>
+  <div id="csList" class="cs-list"></div>
+  <div class="cs-foot">
+    <span>SG = minuto indicado</span><span>G1 = minuto seguinte</span><span>⚪ = cobertura</span>
+    <b id="csNext"></b>
+  </div>
+</section>
+<section class="terminal">
  <div class="terminal-head">
   <div><span class="tag">HISTÓRICO</span><h1>CATALOGADOR AO VIVO</h1></div>
   <div class="legend"><span><i class="dot yellow"></i> AMARELO</span><span><i class="dot black"></i> PRETO</span><span><i class="dot white"></i> BRANCO</span></div>

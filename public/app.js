@@ -227,7 +227,122 @@ document.addEventListener('click',e=>{const b=e.target.closest('.wf-scale');if(!
 window.addEventListener('resize',wfDraw);
 document.addEventListener('mousemove',e=>{if(e.target?.id==='wfChart')wfTip(e)});
 document.addEventListener('touchmove',e=>{if(e.target?.id==='wfChart')wfTip(e)},{passive:true});
+
+/* V2.0 — Radar de cores: lista automática de 15 minutos */
+const CSKEY='rb_color_signals_v2';
+let CSSTATE=null;
+try{CSSTATE=JSON.parse(localStorage.getItem(CSKEY)||'null')}catch(e){CSSTATE=null}
+
+function csMinute(t){const d=new Date(t);d.setSeconds(0,0);return d.getTime()}
+function csBlock(t=Date.now()){const d=new Date(t);d.setSeconds(0,0);d.setMinutes(Math.floor(d.getMinutes()/15)*15);return d.getTime()}
+function csFmt(t){return new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function csColor(n){n=+n;return n===0?'W':n<=7?'Y':'B'}
+function csIcon(k){return k==='B'?'⚫':k==='Y'?'🟡':'⚪'}
+
+function csRowsByMinute(rows){
+  const m=new Map();
+  rows.forEach(r=>{
+    const t=csMinute(new Date(r.ts).getTime());
+    if(!Number.isFinite(t))return;
+    if(!m.has(t))m.set(t,[]);
+    m.get(t).push(csColor(r.number));
+  });
+  return m;
+}
+
+function csPositionStats(rows){
+  // Score each minute-last-digit separately using visible history.
+  const buckets=Array.from({length:10},()=>({B:0,Y:0,W:0,n:0,recent:[]}));
+  [...rows].sort((a,b)=>new Date(a.ts)-new Date(b.ts)).forEach(r=>{
+    const d=new Date(r.ts), k=d.getMinutes()%10, col=csColor(r.number), b=buckets[k];
+    b[col]++;b.n++;b.recent.push(col);if(b.recent.length>12)b.recent.shift();
+  });
+  return buckets;
+}
+function csPickColor(b){
+  const total=Math.max(1,b.B+b.Y), pb=b.B/total, py=b.Y/total;
+  const recent=b.recent.filter(x=>x!=='W').slice(-6);
+  const rb=recent.filter(x=>x==='B').length/Math.max(1,recent.length);
+  const ry=recent.filter(x=>x==='Y').length/Math.max(1,recent.length);
+  const sb=.72*pb+.28*rb, sy=.72*py+.28*ry;
+  const color=sb>=sy?'B':'Y', edge=Math.abs(sb-sy);
+  // White frequency slightly boosts coverage quality but not color direction.
+  const coverage=b.W/Math.max(1,b.n);
+  return {color,score:edge+coverage*.22,edge,coverage};
+}
+function csGenerate(rows, block){
+  const stats=csPositionStats(rows), start=block+15*60000;
+  const candidates=[];
+  for(let i=0;i<15;i++){
+    const t=start+i*60000, d=new Date(t), p=csPickColor(stats[d.getMinutes()%10]);
+    candidates.push({t,color:p.color,score:p.score,status:'PENDING'});
+  }
+  candidates.sort((a,b)=>b.score-a.score);
+  // Dynamic 4–7 points: strongest 4, then add up to 3 only if reasonably close to #4.
+  const floor=candidates[Math.min(3,candidates.length-1)]?.score||0;
+  let chosen=candidates.filter((x,i)=>i<4 || (i<7 && x.score>=Math.max(.07,floor*.82))).slice(0,7);
+  chosen.sort((a,b)=>a.t-b.t);
+  return {block,start,signals:chosen,created:Date.now()};
+}
+function csEvaluate(state, rows){
+  const by=csRowsByMinute(rows);
+  state.signals.forEach(s=>{
+    const sg=by.get(s.t)||[], g1=by.get(s.t+60000)||[];
+    const hit=a=>a.includes(s.color), white=a=>a.includes('W');
+    if(hit(sg)){s.status='SG'}
+    else if(white(sg)){s.status='WSG'}
+    else if(hit(g1)){s.status='G1'}
+    else if(white(g1)){s.status='WG1'}
+    else if(Date.now()>=s.t+2*60000 && (sg.length||g1.length)){s.status='LOSS'}
+    else s.status='PENDING';
+  });
+  return state;
+}
+function csStatus(s){
+  if(s.status==='SG')return '✅ SG';
+  if(s.status==='G1')return '✅ G1';
+  if(s.status==='WSG')return '⚪ ✅ SG';
+  if(s.status==='WG1')return '⚪ ✅ G1';
+  if(s.status==='LOSS')return '❌';
+  return '⚪';
+}
+function csRender(rows){
+  const now=Date.now(), block=csBlock(now);
+  // Generate current/next list if absent. Once the final signal + G1 is over, roll immediately.
+  if(!CSSTATE || !Array.isArray(CSSTATE.signals)) CSSTATE=csGenerate(rows,block-15*60000);
+  CSSTATE=csEvaluate(CSSTATE,rows);
+  const last=CSSTATE.signals.at(-1);
+  if(last && now>=last.t+2*60000){
+    CSSTATE=csGenerate(rows,block);
+  } else if(CSSTATE.start < block && (!last || last.t < now-60000)){
+    CSSTATE=csGenerate(rows,block);
+  }
+  try{localStorage.setItem(CSKEY,JSON.stringify(CSSTATE))}catch(e){}
+
+  const box=document.getElementById('csList');if(!box)return;
+  box.innerHTML=CSSTATE.signals.map(s=>`
+    <div class="cs-signal ${s.status==='LOSS'?'loss':s.status!=='PENDING'?'done':''}">
+      <b>${csFmt(s.t)}</b>
+      <span class="cs-pick">${csIcon(s.color)}<i>⚪</i></span>
+      <strong>${csStatus(s)}</strong>
+    </div>`).join('');
+  const first=CSSTATE.signals[0], final=CSSTATE.signals.at(-1);
+  const w=document.getElementById('csWindow');
+  if(w&&first&&final)w.textContent=csFmt(first.t)+'–'+csFmt(final.t)+' • '+CSSTATE.signals.length+' MELHORES PONTOS';
+  const nx=document.getElementById('csNext');
+  if(nx&&final){const mins=Math.max(0,Math.ceil((final.t+2*60000-now)/60000));nx.textContent=mins?'NOVA LISTA EM ~'+mins+' MIN':'ATUALIZANDO…'}
+}
+async function csCopy(){
+  if(!CSSTATE)return;
+  const text=CSSTATE.signals.map(s=>`${csFmt(s.t)} ${csIcon(s.color)}⚪`).join('\n');
+  try{await navigator.clipboard.writeText(text)}catch(e){
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+  }
+  const b=document.getElementById('csCopy');if(b){const old=b.textContent;b.textContent='COPIADO ✓';setTimeout(()=>b.textContent=old,1200)}
+}
+document.addEventListener('click',e=>{if(e.target?.id==='csCopy')csCopy()});
 function render(rows){
+  csRender(rows);
  wfUpdate(rows);
  if(!rows.length)return;
  detectNewWhite(rows);

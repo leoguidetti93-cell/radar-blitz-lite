@@ -259,3 +259,24 @@
 }
 
 /* V1.9.1: níveis de suporte/resistência são desenhados diretamente no canvas no modo 1H. */
+
+/* V2.0 — Radar de cores */
+.color-signals{margin:10px 8px;border:1px solid #242c35;border-radius:11px;background:#0c1117;overflow:hidden}
+.cs-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px 8px}
+.cs-kicker{font:800 6px/1 system-ui;letter-spacing:.1em;color:#f3c72f}
+.cs-head h2{margin:3px 0 2px;font:900 12px/1 system-ui;color:#f5f7f9;letter-spacing:.02em}
+.cs-head small{font:700 6px/1 system-ui;color:#697684;letter-spacing:.08em}
+#csCopy{border:1px solid #f3c72f66;background:#f3c72f0d;color:#f3c72f;border-radius:7px;padding:7px 10px;font:900 7px/1 system-ui;letter-spacing:.06em;cursor:pointer}
+.cs-list{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;padding:0 14px 9px}
+.cs-signal{display:flex;align-items:center;justify-content:center;gap:7px;min-height:35px;border:1px solid #202833;border-radius:8px;background:#090e13;padding:5px 7px}
+.cs-signal b{font:900 10px/1 system-ui;color:#f3f5f7}.cs-pick{font-size:13px;white-space:nowrap}.cs-pick i{font-style:normal;font-size:10px;margin-left:2px}
+.cs-signal strong{font:900 8px/1 system-ui;color:#778391;white-space:nowrap}
+.cs-signal.done strong{color:#70e6a0}.cs-signal.loss strong{color:#ff6b6b}
+.cs-foot{display:flex;gap:14px;align-items:center;border-top:1px solid #18202a;padding:6px 14px;color:#65717f;font:700 6px/1 system-ui;letter-spacing:.05em}
+.cs-foot b{margin-left:auto;color:#8995a2}
+@media(max-width:800px){
+ .cs-list{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 9px 8px}
+ .cs-head{padding:9px}.cs-foot{padding:6px 9px;gap:7px;flex-wrap:wrap}
+ .cs-foot b{width:100%;margin-left:0}
+ .cs-signal{justify-content:flex-start}.cs-signal strong{margin-left:auto}
+}
