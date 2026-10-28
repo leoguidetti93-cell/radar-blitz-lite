@@ -22,8 +22,28 @@ function blockKey(r){
  let p=parts(r.ts), m=Number(p.minute), start=Math.floor(m/10)*10;
  return `${p.year}-${p.month}-${p.day}T${p.hour}:${String(start).padStart(2,'0')}`;
 }
+let initialized=false,lastSeenTs=null,alertTimer=null;
+function showWhiteAlert(r){
+ const overlay=$('#whiteAlert');
+ $('#whiteAlertTime').textContent=fmt(r.ts);
+ overlay.classList.remove('show');
+ void overlay.offsetWidth;
+ overlay.classList.add('show');
+ overlay.setAttribute('aria-hidden','false');
+ clearTimeout(alertTimer);
+ alertTimer=setTimeout(()=>{overlay.classList.remove('show');overlay.setAttribute('aria-hidden','true')},7000);
+}
+function detectNewWhite(rows){
+ if(!rows.length)return;
+ if(!initialized){lastSeenTs=rows[0].ts;initialized=true;return}
+ const fresh=rows.filter(r=>r.ts>lastSeenTs).sort((a,b)=>a.ts-b.ts);
+ lastSeenTs=Math.max(lastSeenTs,rows[0].ts);
+ const w=fresh.filter(r=>r.number===0).pop();
+ if(w)showWhiteAlert(w);
+}
 function render(rows){
  if(!rows.length)return;
+ detectNewWhite(rows);
  const last=rows[0],c=color(last.number),ls=$('#lastStone');
  ls.className='stone hero '+c;if(c==='white')ls.innerHTML='<span class="white-badge"><i class="blitz-bolt"></i></span>';else ls.textContent=last.number;$('#lastTime').textContent=fmt(last.ts);
 

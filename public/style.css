@@ -67,3 +67,40 @@
  .column-stats{grid-template-columns:58px 1fr;gap:5px}
  .column-stat b{font-size:7px}.column-stat strong{font-size:9px}
 }
+
+/* V1.5 — legibilidade + identidade branca */
+.column-stats-label b{color:#f5f7fa!important}
+.column-stat strong,.column-stat.hot strong{color:#f5f7fa!important}
+.metric label{font-size:10px!important;color:#a8b4c3!important}
+.metric small{font-size:9px!important;color:#8e9aaa!important}
+.lastmeta small{font-size:9px!important;color:#a0acba!important}
+.subline{font-size:9px!important;color:#909cab!important}
+.subline b{font-size:10px!important;color:#f1f4f7!important}
+.statrow span{font-size:9px!important;color:#9ca8b7!important}
+.command-title small{font-size:10px!important;color:#8c98a8!important}
+
+/* Popup central de branco — 7 segundos */
+.white-alert{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:rgba(3,5,8,0);backdrop-filter:blur(0);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s}
+.white-alert.show{opacity:1;visibility:visible;background:rgba(3,5,8,.72);backdrop-filter:blur(8px)}
+.white-alert-card{width:min(520px,88vw);min-height:430px;border:1px solid #f3c72f66;border-radius:24px;background:radial-gradient(circle at 50% 35%,#25210e 0,#12151a 37%,#090c10 78%);box-shadow:0 0 0 1px #ffffff08,0 30px 100px #000,0 0 80px #f3c72f18;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;transform:scale(.68) translateY(28px);opacity:0}
+.white-alert.show .white-alert-card{animation:whiteAlertIn .65s cubic-bezier(.2,.9,.2,1) forwards,whitePulse 1.4s ease-in-out .7s infinite}
+.white-alert-card:before,.white-alert-card:after{content:"";position:absolute;border:1px solid #f3c72f20;border-radius:50%;width:280px;height:280px;animation:ring 2s ease-out infinite}
+.white-alert-card:after{animation-delay:1s}
+.alert-kicker{font-size:10px;font-weight:800;letter-spacing:.22em;color:#8d98a7;margin-bottom:8px}
+.alert-title{font-size:52px;line-height:1;font-weight:1000;letter-spacing:.04em;color:#fff;text-shadow:0 0 28px #fff2;margin-bottom:25px}
+.alert-stone{width:116px!important;height:116px!important;z-index:2;box-shadow:0 0 0 7px #ffffff0b,0 0 50px #fff2!important}
+.alert-stone .white-badge{width:48px!important;height:48px!important;border-radius:11px!important;box-shadow:0 5px 15px #0003,0 0 28px #f3c72f55!important}
+.alert-stone .white-badge .blitz-bolt{width:18px!important;height:29px!important}
+.alert-time-label{font-size:9px;letter-spacing:.22em;color:#8591a0;margin-top:25px}
+.alert-time{font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;color:#fff;margin-top:4px}
+.alert-progress{position:absolute;left:0;bottom:0;height:4px;background:#f3c72f;width:100%;transform-origin:left}
+.white-alert.show .alert-progress{animation:alertCountdown 7s linear forwards}
+@keyframes whiteAlertIn{0%{transform:scale(.68) translateY(28px);opacity:0}65%{transform:scale(1.035) translateY(0);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
+@keyframes whitePulse{0%,100%{box-shadow:0 30px 100px #000,0 0 55px #f3c72f12}50%{box-shadow:0 30px 100px #000,0 0 95px #f3c72f32}}
+@keyframes ring{0%{transform:scale(.35);opacity:.55}100%{transform:scale(1.5);opacity:0}}
+@keyframes alertCountdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media(max-width:600px){
+ .white-alert-card{width:88vw;min-height:390px;border-radius:20px}
+ .alert-title{font-size:43px}.alert-stone{width:100px!important;height:100px!important}.alert-time{font-size:25px}
+ .metric label{font-size:9px!important}.metric small{font-size:8px!important}.statrow span{font-size:8px!important}
+}
