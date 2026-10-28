@@ -23,8 +23,46 @@ function blockKey(r){
  return `${p.year}-${p.month}-${p.day}T${p.hour}:${String(start).padStart(2,'0')}`;
 }
 let initialized=false,lastSeenTs=null,alertTimer=null;
-function showWhiteAlert(r){
+
+function whiteAlertStone(){
+ return '<div class="alert-stone stone white"><span class="white-badge"><i class="blitz-bolt"></i></span></div>';
+}
+function anyColorAlertStone(){
+ return '<div class="alert-stone stone any-color" aria-label="amarelo ou preto"></div>';
+}
+function classifyWhiteSequence(rows,current){
+ const idx=rows.findIndex(r=>r===current || (r.ts===current.ts && r.number===current.number));
+ const h=idx>=0?rows.slice(idx):[current];
+ const W=i=>h[i] && Number(h[i].number)===0;
+ const C=i=>h[i] && Number(h[i].number)!==0;
+
+ // Priority: consecutive sequences first.
+ if(W(0)&&W(1)&&W(2)&&W(3)){
+   let count=0;
+   while(W(count)) count++;
+   return {kind:'forrada',title:'FORRADA!',subtitle:'QUE SEQUÊNCIA DE BRANCOS!',pattern:Array(Math.min(count,5)).fill('W')};
+ }
+ if(W(0)&&W(1)&&W(2))
+   return {kind:'triplo',title:'TOMA ESSE',subtitle:'TRIPLO BRANCO!',pattern:['W','W','W']};
+ if(W(0)&&W(1))
+   return {kind:'duplo',title:'TOMA ESSE',subtitle:'DUPLO BRANCO!',pattern:['W','W']};
+
+ // Newest -> oldest representation of B > A/P > B and B > A/P > A/P > B.
+ if(W(0)&&C(1)&&W(2))
+   return {kind:'espelhado',title:'BRANCO',subtitle:'ESPELHADO!',pattern:['W','C','W']};
+ if(W(0)&&C(1)&&C(2)&&W(3))
+   return {kind:'dentado',title:'BRANCO',subtitle:'DENTADO!',pattern:['W','C','C','W']};
+
+ return {kind:'normal',title:'BRANCO!',subtitle:'',pattern:['W']};
+}
+function showWhiteAlert(r,rows){
+ const event=classifyWhiteSequence(rows,r);
  const overlay=$('#whiteAlert');
+ const card=$('#whiteAlertCard');
+ card.className='white-alert-card event-'+event.kind;
+ $('#whiteAlertTitle').textContent=event.title;
+ $('#whiteAlertSubtitle').textContent=event.subtitle;
+ $('#whiteAlertSequence').innerHTML=event.pattern.map(x=>x==='W'?whiteAlertStone():anyColorAlertStone()).join('');
  $('#whiteAlertTime').textContent=fmt(r.ts);
  overlay.classList.remove('show');
  void overlay.offsetWidth;
@@ -38,8 +76,9 @@ function detectNewWhite(rows){
  if(!initialized){lastSeenTs=rows[0].ts;initialized=true;return}
  const fresh=rows.filter(r=>r.ts>lastSeenTs).sort((a,b)=>a.ts-b.ts);
  lastSeenTs=Math.max(lastSeenTs,rows[0].ts);
- const w=fresh.filter(r=>r.number===0).pop();
- if(w)showWhiteAlert(w);
+ const whites=fresh.filter(r=>Number(r.number)===0);
+ const w=whites.pop();
+ if(w)showWhiteAlert(w,rows);
 }
 function render(rows){
  if(!rows.length)return;
