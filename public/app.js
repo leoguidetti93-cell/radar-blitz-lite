@@ -10,7 +10,7 @@ function normalize(raw){
 }
 function mkStone(r){
  let c=color(r.number),el=document.createElement('div');el.className='stone '+c;
- el.textContent=c==='white'?'ϟ':r.number; return el
+ if(c==='white') el.innerHTML='<span class="white-badge"><i class="blitz-bolt"></i></span>'; else el.textContent=r.number; return el
 }
 
 /* Cada linha = bloco cronológico de 10 minutos (ex. 10:00–10:09).
@@ -25,8 +25,7 @@ function blockKey(r){
 function render(rows){
  if(!rows.length)return;
  const last=rows[0],c=color(last.number),ls=$('#lastStone');
- ls.className='stone hero '+c;ls.textContent=c==='white'?'ϟ':last.number;
- $('#lastNumber').textContent=c==='white'?'BRANCO':last.number;$('#lastTime').textContent=fmt(last.ts);
+ ls.className='stone hero '+c;if(c==='white')ls.innerHTML='<span class="white-badge"><i class="blitz-bolt"></i></span>';else ls.textContent=last.number;$('#lastTime').textContent=fmt(last.ts);
 
  const wi=rows.findIndex(r=>r.number===0);
  $('#recovery').textContent=wi<0?'200+':wi;
@@ -39,18 +38,19 @@ function render(rows){
  for(let i=0;i<whites.length-1;i++)g.push(whites[i+1]-whites[i]);
  $('#avgWhite').textContent=g.length?(g.reduce((a,b)=>a+b,0)/g.length).toFixed(1):'--';
 
- // % BRANCO por COLUNA de minuto final (00..59), usando as 200 rodadas.
- const colStats=Array.from({length:60},(_,m)=>{
-   const a=rows.filter(r=>Number(parts(r.ts).minute)===m);
+ // Estatística por POSIÇÃO FINAL do minuto:
+ // coluna 0 = 00,10,20,30,40,50; coluna 1 = 01,11,21...; etc.
+ // É UMA estatística por coluna e aparece somente no cabeçalho do catálogo.
+ const posStats=Array.from({length:10},(_,pos)=>{
+   const a=rows.filter(r=>Number(parts(r.ts).minute)%10===pos);
    return {total:a.length,white:a.filter(r=>r.number===0).length}
  });
 
- // Agrupa as rodadas em blocos reais de 10 minutos.
+ // Agrupa em blocos cronológicos reais de 10 minutos.
  const map=new Map();
  rows.forEach(r=>{let k=blockKey(r);if(!map.has(k))map.set(k,[]);map.get(k).push(r)});
  let blocks=[...map.entries()].sort((a,b)=>b[0].localeCompare(a[0])).slice(0,10);
 
- // Garante 10 linhas mesmo se a API ainda não trouxe 10 blocos completos.
  if(blocks.length){
    let [datepart,timepart]=blocks[blocks.length-1][0].split('T');
    let base=new Date(`${datepart}T${timepart}:00-03:00`);
@@ -63,6 +63,19 @@ function render(rows){
  }
 
  const grid=$('#grid');grid.innerHTML='';
+
+ // Único cabeçalho estatístico: *0s, *1s, ... *9s.
+ let statRow=document.createElement('div');statRow.className='column-stats';
+ statRow.innerHTML='<div class="column-stats-label"><b>% BRANCO</b><span>POR COLUNA</span></div>';
+ let statCols=document.createElement('div');statCols.className='column-stats-cols';
+ for(let pos=0;pos<10;pos++){
+   let st=posStats[pos],pct=st.total?st.white*100/st.total:0;
+   let c=document.createElement('div');c.className='column-stat'+(pct?' hot':'');
+   c.innerHTML=`<b>*${pos}s</b><strong>${pct.toFixed(1)}%</strong>`;
+   statCols.appendChild(c)
+ }
+ statRow.appendChild(statCols);grid.appendChild(statRow);
+
  blocks.forEach(([key,brows])=>{
    let start=Number(key.slice(-2)), hour=key.slice(11,13), end=start+9;
    let row=document.createElement('div');row.className='catalog-row';
@@ -72,9 +85,8 @@ function render(rows){
 
    let dec=document.createElement('div');dec.className='decade';
    for(let m=start;m<=end;m++){
-     let st=colStats[m],pct=st.total?st.white*100/st.total:0;
      let cell=document.createElement('div');cell.className='minute';
-     cell.innerHTML=`<div class="minute-head"><b>${String(m).padStart(2,'0')}</b><span class="${pct?'hot':''}">BRANCO ${pct.toFixed(1)}%</span></div><div class="minute-stones"></div>`;
+     cell.innerHTML=`<div class="minute-head"><b>${String(m).padStart(2,'0')}</b></div><div class="minute-stones"></div>`;
      let box=cell.querySelector('.minute-stones');
      let rr=brows.filter(r=>Number(parts(r.ts).minute)===m).sort((a,b)=>a.ts-b.ts).slice(0,2);
      rr.forEach(r=>box.appendChild(mkStone(r)));
