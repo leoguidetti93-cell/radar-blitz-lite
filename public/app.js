@@ -94,7 +94,7 @@ function wfUpdate(rows){
  WFB=[...m.values()].sort((a,b)=>a.t-b.t).slice(-24);localStorage.setItem(WFK,JSON.stringify(WFB));wfDraw()
 }
 function wfDraw(){
- let c=document.getElementById('wfChart');if(!c||!WFB.length)return;let box=c.parentElement,D=devicePixelRatio||1,W=Math.max(720,box.clientWidth),H=280;
+ let c=document.getElementById('wfChart');if(!c||!WFB.length)return;let box=c.parentElement,D=devicePixelRatio||1,W=Math.max(720,box.clientWidth),H=165;
  c.width=W*D;c.height=H*D;c.style.width=W+'px';c.style.height=H+'px';let g=c.getContext('2d');g.setTransform(D,0,0,D,0,0);
  let d=WFB,p={l:38,r:16,t:18,b:38},pw=W-p.l-p.r,ph=H-p.t-p.b,M=Math.max(4,...d.map(v=>v.count));M=Math.ceil(M/2)*2;
  let X=i=>d.length<2?p.l+pw:p.l+pw*i/(d.length-1),Y=v=>p.t+ph-v/M*ph;

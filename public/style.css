@@ -185,3 +185,26 @@
 }
 
 .wf-panel{margin:18px 0;border:1px solid #202731;border-radius:18px;background:linear-gradient(#0d1116,#090c10);overflow:hidden}.wf-head{display:flex;justify-content:space-between;padding:18px 20px 8px}.wf-head h2{margin:7px 0 4px;font-size:16px;color:#f5f7fa}.wf-head p,.wf-head>b{font-size:9px;color:#8d98a7;letter-spacing:.08em}.wf-box{position:relative;overflow-x:auto;padding:0 10px}.wf-box canvas{display:block;min-width:720px}.wf-foot{display:flex;justify-content:space-between;padding:8px 20px 14px;border-top:1px solid #171d25;font-size:8px;color:#778392;letter-spacing:.08em}#wfTip{display:none;position:absolute;top:20px;transform:translateX(-50%);padding:8px 10px;background:#080b0fee;border:1px solid #f3c72f66;border-radius:9px;text-align:center;pointer-events:none}#wfTip.on{display:flex;flex-direction:column}#wfTip b{color:#f3c72f;font-size:10px}#wfTip span{color:#fff;font-size:12px;font-weight:900}@media(max-width:600px){.wf-head{padding:14px}.wf-head h2{font-size:14px}.wf-foot{padding:8px 14px 12px}.wf-box{padding:0}}
+
+/* V1.7.1 — WHITE FLOW compacto/delicado */
+.wf-panel{margin:12px 0;border-radius:13px!important}
+.wf-head{padding:11px 15px 4px!important;align-items:center!important}
+.wf-head .tech-tag{font-size:7px!important;padding:3px 6px!important}
+.wf-head h2{margin:4px 0 2px!important;font-size:12px!important;letter-spacing:.045em!important}
+.wf-head p{font-size:8px!important;opacity:.82}
+.wf-head>b{font-size:7px!important;letter-spacing:.07em!important}
+.wf-box{padding:0 8px!important;max-height:170px!important}
+.wf-box canvas{height:165px!important;min-width:720px!important}
+.wf-foot{padding:5px 15px 8px!important;font-size:7px!important;opacity:.8}
+#wfTip{top:10px!important;padding:5px 7px!important}
+#wfTip b{font-size:8px!important}#wfTip span{font-size:10px!important}
+@media(max-width:600px){
+ .wf-panel{margin:10px 0}
+ .wf-head{padding:9px 11px 3px!important}
+ .wf-head h2{font-size:11px!important}
+ .wf-head p{font-size:7px!important}
+ .wf-head>b{font-size:6.5px!important}
+ .wf-box{max-height:155px!important;padding:0!important}
+ .wf-box canvas{height:150px!important}
+ .wf-foot{padding:4px 11px 7px!important;font-size:6.5px!important}
+}
