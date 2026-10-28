@@ -168,6 +168,32 @@ function wfDraw(){
   let M=Math.max(4,...d.map(v=>v.count));M=Math.ceil(M/2)*2;
   const X=i=>p.l+pw*i/(d.length-1),Y=v=>p.t+ph-v/M*ph;
 
+  if(WFSCALE===60&&study){
+    const drawLevel=(val,label,accent)=>{
+      const yy=Y(val);
+      g.save();
+      g.setLineDash([7,5]);
+      g.lineWidth=1;
+      g.strokeStyle=accent?'rgba(243,199,47,.50)':'rgba(210,220,232,.32)';
+      g.beginPath();g.moveTo(p.l,yy);g.lineTo(W-p.r,yy);g.stroke();
+      g.setLineDash([]);
+      const text=label+'  '+val;
+      g.font='800 8px system-ui';
+      const tw=g.measureText(text).width;
+      const bx=W-p.r-tw-14, by=yy-10;
+      g.fillStyle=accent?'rgba(243,199,47,.12)':'rgba(190,202,216,.09)';
+      g.strokeStyle=accent?'rgba(243,199,47,.38)':'rgba(190,202,216,.22)';
+      g.beginPath();g.roundRect(bx,by,tw+10,16,4);g.fill();g.stroke();
+      g.fillStyle=accent?'#f3c72f':'#aeb9c6';
+      g.textAlign='left';g.textBaseline='middle';
+      g.fillText(text,bx+5,by+8);
+      g.restore();
+    };
+    drawLevel(study.support,'SUPORTE',false);
+    drawLevel(study.resistance,'RESISTÊNCIA',true);
+  }
+
+
   g.font='8px system-ui';g.textAlign='right';g.textBaseline='middle';
   for(let i=0;i<3;i++){let y=p.t+ph*i/2,v=Math.round(M*(1-i/2));g.strokeStyle='rgba(148,163,184,.11)';g.beginPath();g.moveTo(p.l,y);g.lineTo(W-p.r,y);g.stroke();g.fillStyle='#788493';g.fillText(v,p.l-6,y)}
 

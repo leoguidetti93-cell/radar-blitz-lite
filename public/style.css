@@ -257,3 +257,5 @@
   .wf-panel:has(.wf-scale[data-scale="60"].active) .wf-box{max-height:230px!important}
   .wf-panel:has(.wf-scale[data-scale="60"].active) .wf-box canvas{height:230px!important}
 }
+
+/* V1.9.1: níveis de suporte/resistência são desenhados diretamente no canvas no modo 1H. */
