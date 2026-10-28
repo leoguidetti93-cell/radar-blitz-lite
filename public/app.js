@@ -304,7 +304,7 @@ function csStatus(s){
   if(s.status==='WSG')return '⚪ ✅ SG';
   if(s.status==='WG1')return '⚪ ✅ G1';
   if(s.status==='LOSS')return '❌';
-  return '⚪';
+  return '';
 }
 function csRender(rows){
   const now=Date.now(), block=csBlock(now);
