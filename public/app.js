@@ -94,7 +94,7 @@ function wfUpdate(rows){
  WFB=[...m.values()].sort((a,b)=>a.t-b.t).slice(-24);localStorage.setItem(WFK,JSON.stringify(WFB));wfDraw()
 }
 function wfDraw(){
- let c=document.getElementById('wfChart');if(!c||!WFB.length)return;let box=c.parentElement,D=devicePixelRatio||1,W=Math.max(720,box.clientWidth),H=165;
+ let c=document.getElementById('wfChart');if(!c||!WFB.length)return;let box=c.parentElement,D=devicePixelRatio||1,W=Math.max(280,box.clientWidth),H=122;
  c.width=W*D;c.height=H*D;c.style.width=W+'px';c.style.height=H+'px';let g=c.getContext('2d');g.setTransform(D,0,0,D,0,0);
  let d=WFB,p={l:38,r:16,t:18,b:38},pw=W-p.l-p.r,ph=H-p.t-p.b,M=Math.max(4,...d.map(v=>v.count));M=Math.ceil(M/2)*2;
  let X=i=>d.length<2?p.l+pw:p.l+pw*i/(d.length-1),Y=v=>p.t+ph-v/M*ph;
@@ -104,7 +104,7 @@ function wfDraw(){
  g.beginPath();d.forEach((v,i)=>i?g.lineTo(X(i),Y(v.count)):g.moveTo(X(i),Y(v.count)));g.lineTo(X(d.length-1),p.t+ph);g.lineTo(X(0),p.t+ph);g.closePath();g.fillStyle=gr;g.fill();
  g.beginPath();d.forEach((v,i)=>i?g.lineTo(X(i),Y(v.count)):g.moveTo(X(i),Y(v.count)));g.strokeStyle='#f3c72f';g.lineWidth=2.6;g.lineJoin='round';g.shadowColor='rgba(243,199,47,.5)';g.shadowBlur=10;g.stroke();g.shadowBlur=0;
  d.forEach((v,i)=>{g.beginPath();g.arc(X(i),Y(v.count),3,0,7);g.fillStyle='#ffd83d';g.fill()});
- g.textAlign='center';g.textBaseline='top';g.fillStyle='#788493';d.forEach((v,i)=>{if(i%4===0||i===d.length-1)g.fillText(wft(v.t),X(i),H-p.b+11)});
+ g.textAlign='center';g.textBaseline='top';g.fillStyle='#788493';d.forEach((v,i)=>{if(i%3===0||i===d.length-1)g.fillText(wft(v.t),X(i),H-p.b+11)});
  c._wf={d,X};let r=document.getElementById('wfRange');if(r)r.textContent=wft(d[0].t)+' → '+wft(d.at(-1).t+14*60000)+' • '+d.length+'/24 PONTOS'
 }
 function wfTip(e){let c=document.getElementById('wfChart'),t=document.getElementById('wfTip');if(!c?._wf)return;let r=c.getBoundingClientRect(),mx=(e.touches?.[0]?.clientX??e.clientX)-r.left,b=0,z=1e9;c._wf.d.forEach((v,i)=>{let q=Math.abs(c._wf.X(i)-mx);if(q<z){z=q;b=i}});let v=c._wf.d[b];t.innerHTML='<b>'+wft(v.t)+'–'+wft(v.t+14*60000)+'</b><span>'+v.count+' branco'+(v.count===1?'':'s')+'</span>';t.style.left=Math.max(65,Math.min(r.width-65,c._wf.X(b)))+'px';t.classList.add('on')}

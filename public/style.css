@@ -208,3 +208,26 @@
  .wf-box canvas{height:150px!important}
  .wf-foot{padding:4px 11px 7px!important;font-size:6.5px!important}
 }
+
+/* V1.7.2 — MINI WHITE FLOW: 6h inteiras sem scroll */
+.wf-panel{margin:9px 0!important;border-radius:12px!important}
+.wf-head{padding:8px 13px 2px!important;align-items:center!important}
+.wf-head>div{display:flex!important;align-items:baseline!important;gap:8px!important;min-width:0}
+.wf-head .tech-tag{font-size:6px!important;padding:2px 5px!important;flex:none}
+.wf-head h2{margin:0!important;font-size:10px!important;letter-spacing:.035em!important;white-space:nowrap}
+.wf-head p{display:none!important}
+.wf-head>b{font-size:6px!important;letter-spacing:.055em!important}
+.wf-box{padding:0 7px!important;overflow:hidden!important;max-height:122px!important}
+.wf-box canvas{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;height:122px!important}
+.wf-foot{padding:3px 13px 6px!important;font-size:6px!important;line-height:1.1!important}
+#wfTip{top:5px!important;padding:4px 6px!important}
+#wfTip b{font-size:7px!important}#wfTip span{font-size:9px!important}
+@media(max-width:600px){
+ .wf-panel{margin:7px 0!important}
+ .wf-head{padding:7px 9px 1px!important}
+ .wf-head h2{font-size:8.5px!important}
+ .wf-head>b{font-size:5.5px!important}
+ .wf-box{padding:0 4px!important;max-height:112px!important}
+ .wf-box canvas{height:112px!important;min-width:0!important;width:100%!important}
+ .wf-foot{padding:2px 9px 5px!important;font-size:5.5px!important}
+}
