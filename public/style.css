@@ -231,3 +231,9 @@
  .wf-box canvas{height:112px!important;min-width:0!important;width:100%!important}
  .wf-foot{padding:2px 9px 5px!important;font-size:5.5px!important}
 }
+
+/* V1.8 — WHITE FLOW multiescala */
+.wf-controls{display:flex!important;align-items:center!important;gap:3px!important}
+.wf-scale{appearance:none;border:1px solid #27303a;background:#0b0f14;color:#7f8b99;border-radius:6px;padding:4px 7px;font:800 7px/1 system-ui;letter-spacing:.05em;cursor:pointer}
+.wf-scale:hover{border-color:#6b6030;color:#d5d8dc}.wf-scale.active{border-color:#f3c72f99;background:#f3c72f12;color:#f3c72f;box-shadow:0 0 10px #f3c72f12}
+@media(max-width:600px){.wf-scale{padding:3px 5px;font-size:5.8px}.wf-controls{gap:2px!important}}

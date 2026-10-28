@@ -81,34 +81,96 @@ function detectNewWhite(rows){
  if(w)showWhiteAlert(w,rows);
 }
 
-const WFK='rb_white_flow_15m_v1';let WFB=[];
-function wfs(t){let d=new Date(t);if(isNaN(d))return null;d.setSeconds(0,0);d.setMinutes(Math.floor(d.getMinutes()/15)*15);return d.getTime()}
-function wft(t){return new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',hour12:false})}
-try{WFB=JSON.parse(localStorage.getItem(WFK)||'[]')}catch(e){WFB=[]}
+
+const WF_SEED=[["2026-10-23T15:00:00-03:00", 7], ["2026-10-23T16:00:00-03:00", 11], ["2026-10-23T17:00:00-03:00", 10], ["2026-10-23T18:00:00-03:00", 12], ["2026-10-23T19:00:00-03:00", 7], ["2026-10-23T20:00:00-03:00", 7], ["2026-10-23T21:00:00-03:00", 4], ["2026-10-23T22:00:00-03:00", 7], ["2026-10-23T23:00:00-03:00", 10], ["2026-10-24T00:00:00-03:00", 6], ["2026-10-24T01:00:00-03:00", 4], ["2026-10-24T02:00:00-03:00", 9], ["2026-10-24T03:00:00-03:00", 10], ["2026-10-24T04:00:00-03:00", 10], ["2026-10-24T05:00:00-03:00", 6], ["2026-10-24T06:00:00-03:00", 7], ["2026-10-24T07:00:00-03:00", 12], ["2026-10-24T08:00:00-03:00", 4], ["2026-10-24T09:00:00-03:00", 4], ["2026-10-24T10:00:00-03:00", 8], ["2026-10-24T11:00:00-03:00", 8], ["2026-10-24T12:00:00-03:00", 6], ["2026-10-24T13:00:00-03:00", 3], ["2026-10-24T14:00:00-03:00", 6], ["2026-10-24T15:00:00-03:00", 14], ["2026-10-24T16:00:00-03:00", 12], ["2026-10-24T17:00:00-03:00", 10], ["2026-10-24T18:00:00-03:00", 8], ["2026-10-24T19:00:00-03:00", 8], ["2026-10-24T20:00:00-03:00", 6], ["2026-10-24T21:00:00-03:00", 12], ["2026-10-24T22:00:00-03:00", 11], ["2026-10-24T23:00:00-03:00", 15], ["2026-10-25T00:00:00-03:00", 5], ["2026-10-25T01:00:00-03:00", 8], ["2026-10-25T02:00:00-03:00", 10], ["2026-10-25T03:00:00-03:00", 8], ["2026-10-25T04:00:00-03:00", 11], ["2026-10-25T05:00:00-03:00", 10], ["2026-10-25T06:00:00-03:00", 5], ["2026-10-25T07:00:00-03:00", 8], ["2026-10-25T08:00:00-03:00", 7], ["2026-10-25T09:00:00-03:00", 9], ["2026-10-25T10:00:00-03:00", 7], ["2026-10-25T11:00:00-03:00", 6], ["2026-10-25T12:00:00-03:00", 7], ["2026-10-25T13:00:00-03:00", 6], ["2026-10-25T14:00:00-03:00", 8], ["2026-10-25T15:00:00-03:00", 11], ["2026-10-25T16:00:00-03:00", 5], ["2026-10-25T17:00:00-03:00", 9], ["2026-10-25T18:00:00-03:00", 12], ["2026-10-25T19:00:00-03:00", 2], ["2026-10-25T20:00:00-03:00", 7], ["2026-10-25T21:00:00-03:00", 11], ["2026-10-25T22:00:00-03:00", 5], ["2026-10-25T23:00:00-03:00", 5], ["2026-10-26T00:00:00-03:00", 4], ["2026-10-26T01:00:00-03:00", 9], ["2026-10-26T02:00:00-03:00", 7], ["2026-10-26T03:00:00-03:00", 5], ["2026-10-26T04:00:00-03:00", 9], ["2026-10-26T05:00:00-03:00", 8], ["2026-10-26T06:00:00-03:00", 6], ["2026-10-26T07:00:00-03:00", 6], ["2026-10-26T08:00:00-03:00", 6], ["2026-10-26T09:00:00-03:00", 9], ["2026-10-26T10:00:00-03:00", 8], ["2026-10-26T11:00:00-03:00", 7], ["2026-10-26T12:00:00-03:00", 7], ["2026-10-26T13:00:00-03:00", 8], ["2026-10-26T14:00:00-03:00", 4], ["2026-10-26T15:00:00-03:00", 5], ["2026-10-26T16:00:00-03:00", 10], ["2026-10-26T17:00:00-03:00", 9], ["2026-10-26T18:00:00-03:00", 6], ["2026-10-26T19:00:00-03:00", 3], ["2026-10-26T20:00:00-03:00", 6], ["2026-10-26T21:00:00-03:00", 7], ["2026-10-26T22:00:00-03:00", 6], ["2026-10-26T23:00:00-03:00", 10], ["2026-10-27T00:00:00-03:00", 2], ["2026-10-27T01:00:00-03:00", 11], ["2026-10-27T02:00:00-03:00", 7], ["2026-10-27T03:00:00-03:00", 9], ["2026-10-27T04:00:00-03:00", 9], ["2026-10-27T05:00:00-03:00", 8], ["2026-10-27T06:00:00-03:00", 15], ["2026-10-27T07:00:00-03:00", 17], ["2026-10-27T08:00:00-03:00", 9], ["2026-10-27T09:00:00-03:00", 6], ["2026-10-27T10:00:00-03:00", 9], ["2026-10-27T11:00:00-03:00", 8], ["2026-10-27T12:00:00-03:00", 6], ["2026-10-27T13:00:00-03:00", 11], ["2026-10-27T14:00:00-03:00", 10], ["2026-10-27T15:00:00-03:00", 11], ["2026-10-27T16:00:00-03:00", 8], ["2026-10-27T17:00:00-03:00", 8], ["2026-10-27T18:00:00-03:00", 13], ["2026-10-27T19:00:00-03:00", 5], ["2026-10-27T20:00:00-03:00", 14], ["2026-10-27T21:00:00-03:00", 9], ["2026-10-27T22:00:00-03:00", 5], ["2026-10-27T23:00:00-03:00", 8], ["2026-10-28T00:00:00-03:00", 8], ["2026-10-28T01:00:00-03:00", 8], ["2026-10-28T02:00:00-03:00", 4], ["2026-10-28T03:00:00-03:00", 10], ["2026-10-28T04:00:00-03:00", 6], ["2026-10-28T05:00:00-03:00", 5], ["2026-10-28T06:00:00-03:00", 11], ["2026-10-28T07:00:00-03:00", 8], ["2026-10-28T08:00:00-03:00", 10], ["2026-10-28T09:00:00-03:00", 8], ["2026-10-28T10:00:00-03:00", 8], ["2026-10-28T11:00:00-03:00", 8], ["2026-10-28T12:00:00-03:00", 4], ["2026-10-28T13:00:00-03:00", 7], ["2026-10-28T14:00:00-03:00", 3]];
+const WF_RAW_KEY='rb_white_flow_raw_v2', WF_SCALE_KEY='rb_wf_scale_v2';
+let WFRAW=[], WFSCALE=+(localStorage.getItem(WF_SCALE_KEY)||15);
+try{WFRAW=JSON.parse(localStorage.getItem(WF_RAW_KEY)||'[]')}catch(e){WFRAW=[]}
+
+function wfStart(ts,min){let d=new Date(ts);if(isNaN(d))return null;d.setSeconds(0,0);if(min===60)d.setMinutes(0);else d.setMinutes(Math.floor(d.getMinutes()/min)*min);return d.getTime()}
+function wfTime(t){return new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function wfDate(t){return new Date(t).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
+function wfDay(t){return new Date(t).toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','').toUpperCase()}
+
+const WFSEEDMAP=new Map(WF_SEED.map(([s,n])=>[wfStart(s,60),n]));
+
 function wfUpdate(rows){
- let m=new Map(WFB.map(x=>[x.t,x])),q=new Map;
- rows.forEach(r=>{let t=wfs(r.ts);if(t==null)return;if(!q.has(t))q.set(t,{t,count:0});if(+r.number===0)q.get(t).count++});
- q.forEach((v,k)=>m.set(k,v));let n=wfs(Date.now());if(n!=null&&!m.has(n))m.set(n,{t:n,count:0});
- let a=[...m.values()].sort((a,b)=>a.t-b.t),lo=Math.max(a[0]?.t||n,n-23*900000);
- for(let t=lo;t<=n;t+=900000)if(!m.has(t))m.set(t,{t,count:0});
- WFB=[...m.values()].sort((a,b)=>a.t-b.t).slice(-24);localStorage.setItem(WFK,JSON.stringify(WFB));wfDraw()
+  let set=new Set(WFRAW);
+  rows.forEach(r=>{if(+r.number===0){let t=new Date(r.ts).getTime();if(Number.isFinite(t))set.add(t)}});
+  const cutoff=Date.now()-8*86400000;
+  WFRAW=[...set].filter(t=>t>=cutoff).sort((a,b)=>a-b);
+  try{localStorage.setItem(WF_RAW_KEY,JSON.stringify(WFRAW))}catch(e){}
+  wfDraw();
 }
+
+function wfData(){
+  const step=WFSCALE*60000, count=WFSCALE===60?120:24;
+  const end=wfStart(Date.now(),WFSCALE), start=end-(count-1)*step;
+  const arr=Array.from({length:count},(_,i)=>({t:start+i*step,count:0}));
+
+  if(WFSCALE===60){
+    // Seed fills the historical 5-day graph immediately.
+    arr.forEach(v=>{ if(WFSEEDMAP.has(v.t)) v.count=WFSEEDMAP.get(v.t); });
+    // For hours covered by live raw timestamps, source-of-truth becomes live data.
+    const liveHours=new Map();
+    WFRAW.forEach(t=>{
+      if(t<start||t>=end+step)return;
+      const b=wfStart(t,60); liveHours.set(b,(liveHours.get(b)||0)+1);
+    });
+    // Only overwrite seeded hours when raw coverage exists in that hour.
+    liveHours.forEach((n,b)=>{let i=Math.round((b-start)/step);if(arr[i])arr[i].count=n});
+  } else {
+    WFRAW.forEach(t=>{
+      if(t<start||t>=end+step)return;
+      const b=wfStart(t,WFSCALE),i=Math.round((b-start)/step);
+      if(arr[i])arr[i].count++;
+    });
+  }
+  return arr;
+}
+
 function wfDraw(){
- let c=document.getElementById('wfChart');if(!c||!WFB.length)return;let box=c.parentElement,D=devicePixelRatio||1,W=Math.max(280,box.clientWidth),H=122;
- c.width=W*D;c.height=H*D;c.style.width=W+'px';c.style.height=H+'px';let g=c.getContext('2d');g.setTransform(D,0,0,D,0,0);
- let d=WFB,p={l:38,r:16,t:18,b:38},pw=W-p.l-p.r,ph=H-p.t-p.b,M=Math.max(4,...d.map(v=>v.count));M=Math.ceil(M/2)*2;
- let X=i=>d.length<2?p.l+pw:p.l+pw*i/(d.length-1),Y=v=>p.t+ph-v/M*ph;
- g.font='10px system-ui';g.textAlign='right';g.textBaseline='middle';
- for(let i=0;i<5;i++){let y=p.t+ph*i/4,v=Math.round(M*(1-i/4));g.strokeStyle='rgba(148,163,184,.12)';g.beginPath();g.moveTo(p.l,y);g.lineTo(W-p.r,y);g.stroke();g.fillStyle='#788493';g.fillText(v,p.l-8,y)}
- let gr=g.createLinearGradient(0,p.t,0,p.t+ph);gr.addColorStop(0,'rgba(243,199,47,.38)');gr.addColorStop(1,'rgba(243,199,47,.02)');
- g.beginPath();d.forEach((v,i)=>i?g.lineTo(X(i),Y(v.count)):g.moveTo(X(i),Y(v.count)));g.lineTo(X(d.length-1),p.t+ph);g.lineTo(X(0),p.t+ph);g.closePath();g.fillStyle=gr;g.fill();
- g.beginPath();d.forEach((v,i)=>i?g.lineTo(X(i),Y(v.count)):g.moveTo(X(i),Y(v.count)));g.strokeStyle='#f3c72f';g.lineWidth=2.6;g.lineJoin='round';g.shadowColor='rgba(243,199,47,.5)';g.shadowBlur=10;g.stroke();g.shadowBlur=0;
- d.forEach((v,i)=>{g.beginPath();g.arc(X(i),Y(v.count),3,0,7);g.fillStyle='#ffd83d';g.fill()});
- g.textAlign='center';g.textBaseline='top';g.fillStyle='#788493';d.forEach((v,i)=>{if(i%3===0||i===d.length-1)g.fillText(wft(v.t),X(i),H-p.b+11)});
- c._wf={d,X};let r=document.getElementById('wfRange');if(r)r.textContent=wft(d[0].t)+' → '+wft(d.at(-1).t+14*60000)+' • '+d.length+'/24 PONTOS'
+  const canvas=document.getElementById('wfChart');if(!canvas)return;
+  const d=wfData(),box=canvas.parentElement,D=devicePixelRatio||1,W=Math.max(280,box.clientWidth),H=122;
+  canvas.width=W*D;canvas.height=H*D;canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const g=canvas.getContext('2d');g.setTransform(D,0,0,D,0,0);g.clearRect(0,0,W,H);
+  const p={l:28,r:8,t:9,b:24},pw=W-p.l-p.r,ph=H-p.t-p.b;
+  let M=Math.max(4,...d.map(v=>v.count));M=Math.ceil(M/2)*2;
+  const X=i=>p.l+pw*i/(d.length-1),Y=v=>p.t+ph-v/M*ph;
+
+  g.font='8px system-ui';g.textAlign='right';g.textBaseline='middle';
+  for(let i=0;i<3;i++){let y=p.t+ph*i/2,v=Math.round(M*(1-i/2));g.strokeStyle='rgba(148,163,184,.11)';g.beginPath();g.moveTo(p.l,y);g.lineTo(W-p.r,y);g.stroke();g.fillStyle='#788493';g.fillText(v,p.l-6,y)}
+
+  const grad=g.createLinearGradient(0,p.t,0,p.t+ph);grad.addColorStop(0,'rgba(243,199,47,.35)');grad.addColorStop(1,'rgba(243,199,47,.015)');
+  g.beginPath();d.forEach((v,i)=>i?g.lineTo(X(i),Y(v.count)):g.moveTo(X(i),Y(v.count)));g.lineTo(X(d.length-1),p.t+ph);g.lineTo(X(0),p.t+ph);g.closePath();g.fillStyle=grad;g.fill();
+  g.beginPath();d.forEach((v,i)=>i?g.lineTo(X(i),Y(v.count)):g.moveTo(X(i),Y(v.count)));g.strokeStyle='#f3c72f';g.lineWidth=WFSCALE===60?1.65:2;g.lineJoin='round';g.lineCap='round';g.shadowColor='rgba(243,199,47,.4)';g.shadowBlur=6;g.stroke();g.shadowBlur=0;
+
+  if(WFSCALE!==60) d.forEach((v,i)=>{g.beginPath();g.arc(X(i),Y(v.count),2,0,Math.PI*2);g.fillStyle='#ffd83d';g.fill()});
+  g.textAlign='center';g.textBaseline='top';g.fillStyle='#788493';
+  if(WFSCALE===60){
+    d.forEach((v,i)=>{if(i%24===0||i===d.length-1)g.fillText(wfDate(v.t),X(i),H-p.b+8)});
+  } else {
+    d.forEach((v,i)=>{if(i%6===0||i===d.length-1)g.fillText(wfTime(v.t),X(i),H-p.b+8)});
+  }
+
+  canvas._wf={d,X};
+  const range=document.getElementById('wfRange');
+  if(range)range.textContent=WFSCALE===10?'ÚLTIMAS 4 HORAS • 24 PONTOS':WFSCALE===15?'ÚLTIMAS 6 HORAS • 24 PONTOS':'ÚLTIMOS 5 DIAS • 120 PONTOS';
+  document.querySelectorAll('.wf-scale').forEach(b=>b.classList.toggle('active',+b.dataset.scale===WFSCALE));
 }
-function wfTip(e){let c=document.getElementById('wfChart'),t=document.getElementById('wfTip');if(!c?._wf)return;let r=c.getBoundingClientRect(),mx=(e.touches?.[0]?.clientX??e.clientX)-r.left,b=0,z=1e9;c._wf.d.forEach((v,i)=>{let q=Math.abs(c._wf.X(i)-mx);if(q<z){z=q;b=i}});let v=c._wf.d[b];t.innerHTML='<b>'+wft(v.t)+'–'+wft(v.t+14*60000)+'</b><span>'+v.count+' branco'+(v.count===1?'':'s')+'</span>';t.style.left=Math.max(65,Math.min(r.width-65,c._wf.X(b)))+'px';t.classList.add('on')}
-window.addEventListener('resize',wfDraw);document.addEventListener('mousemove',e=>{if(e.target?.id==='wfChart')wfTip(e)});
+
+function wfTip(e){
+  const c=document.getElementById('wfChart'),t=document.getElementById('wfTip');if(!c?._wf||!t)return;
+  const r=c.getBoundingClientRect(),mx=(e.touches?.[0]?.clientX??e.clientX)-r.left;
+  let best=0,dist=Infinity;c._wf.d.forEach((v,i)=>{let q=Math.abs(c._wf.X(i)-mx);if(q<dist){dist=q;best=i}});
+  const v=c._wf.d[best],end=v.t+(WFSCALE-1)*60000;
+  t.innerHTML='<b>'+(WFSCALE===60?wfDate(v.t)+' • ':'')+wfTime(v.t)+'–'+wfTime(end)+'</b><span>'+v.count+' branco'+(v.count===1?'':'s')+'</span>';
+  t.style.left=Math.max(60,Math.min(r.width-60,c._wf.X(best)))+'px';t.classList.add('on');
+}
+document.addEventListener('click',e=>{const b=e.target.closest('.wf-scale');if(!b)return;WFSCALE=+b.dataset.scale;localStorage.setItem(WF_SCALE_KEY,WFSCALE);wfDraw()});
+window.addEventListener('resize',wfDraw);
+document.addEventListener('mousemove',e=>{if(e.target?.id==='wfChart')wfTip(e)});
+document.addEventListener('touchmove',e=>{if(e.target?.id==='wfChart')wfTip(e)},{passive:true});
 function render(rows){
  wfUpdate(rows);
  if(!rows.length)return;
