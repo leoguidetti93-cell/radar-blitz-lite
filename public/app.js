@@ -129,12 +129,42 @@ function wfData(){
   return arr;
 }
 
+
+function wfMarketStudy(d){
+  const vals=d.map(v=>v.count), recent=vals.slice(-24), short=vals.slice(-6);
+  const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:0;
+  const mean=avg(recent), shortMean=avg(short);
+  const sorted=[...recent].sort((a,b)=>a-b);
+  const q=(p)=>sorted[Math.min(sorted.length-1,Math.max(0,Math.round((sorted.length-1)*p)))]||0;
+  const support=q(.20), resistance=q(.80);
+  const first=avg(short.slice(0,3)), last=avg(short.slice(-3));
+  const delta=last-first;
+  const trend=delta>1?'▲ ALTA':delta<-1?'▼ BAIXA':'◆ LATERAL';
+  const momentum=shortMean>mean+.75?'POSITIVO':shortMean<mean-.75?'NEGATIVO':'NEUTRO';
+  const variance=recent.length?recent.reduce((s,v)=>s+(v-mean)**2,0)/recent.length:0;
+  const sd=Math.sqrt(variance);
+  const vol=sd>=3?'ALTA':sd>=1.8?'MÉDIA':'BAIXA';
+
+  // Conservative historical expectation: blend 24h baseline with 6h momentum.
+  const center=.65*mean+.35*shortMean;
+  const low=Math.max(0,Math.floor(center-Math.max(1,sd*.65)));
+  const high=Math.max(low,Math.ceil(center+Math.max(1,sd*.65)));
+
+  const set=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt};
+  set('wfTrend',trend); set('wfSupport',String(support)); set('wfResistance',String(resistance));
+  set('wfMomentum',momentum); set('wfVolatility',vol); set('wfExpectation',low+'–'+high+' BRANCOS');
+
+  return {support,resistance};
+}
+
 function wfDraw(){
   const canvas=document.getElementById('wfChart');if(!canvas)return;
-  const d=wfData(),box=canvas.parentElement,D=devicePixelRatio||1,W=Math.max(280,box.clientWidth),H=122;
+  const d=wfData(),box=canvas.parentElement,D=devicePixelRatio||1,W=Math.max(280,box.clientWidth),H=(WFSCALE===60?285:122);
+  const market=document.getElementById('wfMarket');if(market)market.classList.toggle('show',WFSCALE===60);
+  const study=WFSCALE===60?wfMarketStudy(d):null;
   canvas.width=W*D;canvas.height=H*D;canvas.style.width=W+'px';canvas.style.height=H+'px';
   const g=canvas.getContext('2d');g.setTransform(D,0,0,D,0,0);g.clearRect(0,0,W,H);
-  const p={l:28,r:8,t:9,b:24},pw=W-p.l-p.r,ph=H-p.t-p.b;
+  const p={l:34,r:12,t:(WFSCALE===60?18:9),b:(WFSCALE===60?34:24)},pw=W-p.l-p.r,ph=H-p.t-p.b;
   let M=Math.max(4,...d.map(v=>v.count));M=Math.ceil(M/2)*2;
   const X=i=>p.l+pw*i/(d.length-1),Y=v=>p.t+ph-v/M*ph;
 
