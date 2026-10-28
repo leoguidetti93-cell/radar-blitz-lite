@@ -286,14 +286,27 @@ function csGenerate(rows, block){
 }
 function csEvaluate(state, rows){
   const by=csRowsByMinute(rows);
+
+  // The API can arrive newest-first. Sort each minute chronologically so:
+  // [0] = first round (SG), [1] = second round (G1).
+  const ordered=new Map();
+  rows.forEach(r=>{
+    const raw=new Date(r.ts).getTime(), minute=csMinute(raw);
+    if(!Number.isFinite(raw))return;
+    if(!ordered.has(minute))ordered.set(minute,[]);
+    ordered.get(minute).push({t:raw,color:csColor(r.number)});
+  });
+  ordered.forEach(a=>a.sort((x,y)=>x.t-y.t));
+
   state.signals.forEach(s=>{
-    const sg=by.get(s.t)||[], g1=by.get(s.t+60000)||[];
-    const hit=a=>a.includes(s.color), white=a=>a.includes('W');
-    if(hit(sg)){s.status='SG'}
-    else if(white(sg)){s.status='WSG'}
-    else if(hit(g1)){s.status='G1'}
-    else if(white(g1)){s.status='WG1'}
-    else if(Date.now()>=s.t+2*60000 && (sg.length||g1.length)){s.status='LOSS'}
+    const rounds=ordered.get(s.t)||[];
+    const sg=rounds[0], g1=rounds[1];
+
+    if(sg && sg.color===s.color) s.status='SG';
+    else if(sg && sg.color==='W') s.status='WSG';
+    else if(g1 && g1.color===s.color) s.status='G1';
+    else if(g1 && g1.color==='W') s.status='WG1';
+    else if(rounds.length>=2) s.status='LOSS';
     else s.status='PENDING';
   });
   return state;
@@ -312,7 +325,7 @@ function csRender(rows){
   if(!CSSTATE || !Array.isArray(CSSTATE.signals)) CSSTATE=csGenerate(rows,block-15*60000);
   CSSTATE=csEvaluate(CSSTATE,rows);
   const last=CSSTATE.signals.at(-1);
-  if(last && now>=last.t+2*60000){
+  if(last && last.status!=='PENDING'){
     CSSTATE=csGenerate(rows,block);
   } else if(CSSTATE.start < block && (!last || last.t < now-60000)){
     CSSTATE=csGenerate(rows,block);
@@ -330,7 +343,7 @@ function csRender(rows){
   const w=document.getElementById('csWindow');
   if(w&&first&&final)w.textContent=csFmt(first.t)+'–'+csFmt(final.t)+' • '+CSSTATE.signals.length+' MELHORES PONTOS';
   const nx=document.getElementById('csNext');
-  if(nx&&final){const mins=Math.max(0,Math.ceil((final.t+2*60000-now)/60000));nx.textContent=mins?'NOVA LISTA EM ~'+mins+' MIN':'ATUALIZANDO…'}
+  if(nx&&final){const mins=Math.max(0,Math.ceil((final.t+60000-now)/60000));nx.textContent=mins?'NOVA LISTA EM ~'+mins+' MIN':'ATUALIZANDO…'}
 }
 async function csCopy(){
   if(!CSSTATE)return;
