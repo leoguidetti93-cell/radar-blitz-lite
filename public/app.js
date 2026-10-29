@@ -353,10 +353,20 @@ function csRender(rows){
   if(!CSSTATE || !Array.isArray(CSSTATE.signals)) CSSTATE=csGenerate(rows,block-15*60000);
   CSSTATE=csEvaluate(CSSTATE,rows);
   const last=CSSTATE.signals.at(-1);
+
+  // Keep the completed list visible for 30 seconds after the LAST signal resolves.
+  // resolvedAt is stored so refreshes during the grace period do not skip it.
   if(last && last.status!=='PENDING'){
-    CSSTATE=csGenerate(rows,block);
-  } else if(CSSTATE.start < block && (!last || last.t < now-60000)){
-    CSSTATE=csGenerate(rows,block);
+    if(!CSSTATE.resolvedAt) CSSTATE.resolvedAt=now;
+    if(now-CSSTATE.resolvedAt>=30000){
+      CSSTATE=csGenerate(rows,block);
+    }
+  } else {
+    CSSTATE.resolvedAt=null;
+    // Safety rollover only for genuinely stale lists; never hide a just-completed result.
+    if(CSSTATE.start < block && (!last || last.t < now-90000)){
+      CSSTATE=csGenerate(rows,block);
+    }
   }
   try{localStorage.setItem(CSKEY,JSON.stringify(CSSTATE))}catch(e){}
 
@@ -371,7 +381,15 @@ function csRender(rows){
   const w=document.getElementById('csWindow');
   if(w&&first&&final)w.textContent=csFmt(first.t)+'–'+csFmt(final.t)+' • '+CSSTATE.signals.length+' MELHORES PONTOS';
   const nx=document.getElementById('csNext');
-  if(nx&&final){const mins=Math.max(0,Math.ceil((final.t+60000-now)/60000));nx.textContent=mins?'NOVA LISTA EM ~'+mins+' MIN':'ATUALIZANDO…'}
+  if(nx&&final){
+    if(last && last.status!=='PENDING' && CSSTATE.resolvedAt){
+      const sec=Math.max(0,Math.ceil((30000-(now-CSSTATE.resolvedAt))/1000));
+      nx.textContent=sec?'NOVA LISTA EM '+sec+'S':'ATUALIZANDO…';
+    }else{
+      const mins=Math.max(0,Math.ceil((final.t+60000-now)/60000));
+      nx.textContent=mins?'NOVA LISTA EM ~'+mins+' MIN':'AGUARDANDO RESULTADO';
+    }
+  }
 }
 async function csCopy(){
   if(!CSSTATE)return;
