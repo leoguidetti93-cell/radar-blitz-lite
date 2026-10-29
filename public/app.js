@@ -95,7 +95,9 @@ function wfTime(t){return new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit'
 function wfDate(t){return new Date(t).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
 function wfDay(t){return new Date(t).toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','').toUpperCase()}
 
+const WF_HOURLY_FIX=[['2026-10-28T00:00:00-03:00',8],['2026-10-28T01:00:00-03:00',8],['2026-10-28T02:00:00-03:00',4],['2026-10-28T03:00:00-03:00',10],['2026-10-28T04:00:00-03:00',6],['2026-10-28T05:00:00-03:00',5],['2026-10-28T06:00:00-03:00',11],['2026-10-28T07:00:00-03:00',8],['2026-10-28T08:00:00-03:00',10],['2026-10-28T09:00:00-03:00',8],['2026-10-28T10:00:00-03:00',8],['2026-10-28T11:00:00-03:00',8],['2026-10-28T12:00:00-03:00',4],['2026-10-28T13:00:00-03:00',7],['2026-10-28T14:00:00-03:00',9],['2026-10-28T15:00:00-03:00',11],['2026-10-28T16:00:00-03:00',5],['2026-10-28T17:00:00-03:00',7],['2026-10-28T18:00:00-03:00',7],['2026-10-28T19:00:00-03:00',8],['2026-10-28T20:00:00-03:00',4],['2026-10-28T21:00:00-03:00',5],['2026-10-28T22:00:00-03:00',5],['2026-10-28T23:00:00-03:00',2],['2026-10-29T00:00:00-03:00',12],['2026-10-29T01:00:00-03:00',5],['2026-10-29T02:00:00-03:00',7],['2026-10-29T03:00:00-03:00',7],['2026-10-29T04:00:00-03:00',7],['2026-10-29T05:00:00-03:00',8],['2026-10-29T06:00:00-03:00',9],['2026-10-29T07:00:00-03:00',7],['2026-10-29T08:00:00-03:00',8],['2026-10-29T09:00:00-03:00',11]];
 const WFSEEDMAP=new Map(WF_SEED.map(([s,n])=>[wfStart(s,60),n]));
+WF_HOURLY_FIX.forEach(([ts,n])=>WFSEEDMAP.set(wfStart(ts,60),n));
 
 function wfUpdate(rows){
   let set=new Set(WFRAW);
@@ -108,7 +110,7 @@ function wfUpdate(rows){
   const tt=rows.map(r=>new Date(r.ts).getTime()).filter(Number.isFinite);
   if(tt.length){
     const lo=Math.min(...tt), hi=Math.max(...tt);
-    [10,15].forEach(sc=>{
+    [10,15,60].forEach(sc=>{
       const step=sc*60000, first=wfStart(lo,sc), last=wfStart(hi,sc);
       for(let b=first;b<=last;b+=step){
         // only save a bucket when the 200-round snapshot covers its full interval
@@ -131,16 +133,14 @@ function wfData(){
   const arr=Array.from({length:count},(_,i)=>({t:start+i*step,count:0}));
 
   if(WFSCALE===60){
-    // Seed fills the historical 5-day graph immediately.
-    arr.forEach(v=>{ if(WFSEEDMAP.has(v.t)) v.count=WFSEEDMAP.get(v.t); });
-    // For hours covered by live raw timestamps, source-of-truth becomes live data.
-    const liveHours=new Map();
-    WFRAW.forEach(t=>{
-      if(t<start||t>=end+step)return;
-      const b=wfStart(t,60); liveHours.set(b,(liveHours.get(b)||0)+1);
+    arr.forEach(v=>{
+      if(WFSEEDMAP.has(v.t)) v.count=WFSEEDMAP.get(v.t);
+      const key='60:'+v.t;
+      if(Object.prototype.hasOwnProperty.call(WFB,key)) v.count=+WFB[key];
     });
-    // Only overwrite seeded hours when raw coverage exists in that hour.
-    liveHours.forEach((n,b)=>{let i=Math.round((b-start)/step);if(arr[i])arr[i].count=n});
+    // current hour stays live; completed hours are persisted
+    arr[arr.length-1].count=0;
+    WFRAW.forEach(t=>{if(t>=end&&t<end+step)arr[arr.length-1].count++});
   } else {
     // Historical completed buckets survive after their rounds leave the visible 200.
     arr.forEach(v=>{
