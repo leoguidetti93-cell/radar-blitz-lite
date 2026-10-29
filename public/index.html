@@ -34,14 +34,7 @@
  </article>
 </section>
 
-<section class="white-signal stat-card" id="whiteSignal">
-  <div class="ws-head">
-    <div><span class="ws-kicker">RADAR DE BRANCO</span><h2>SINAL ATUAL • MARGEM ±1 MIN</h2></div>
-    <b id="wsState">MONITORANDO</b>
-  </div>
-  <div id="wsBody" class="ws-body"><span class="ws-wait">AGUARDANDO CONFLUÊNCIA • INTERVALO MÉDIO + PEDRA PAGANTE</span></div>
-  <div class="ws-foot"><span>1 SINAL POR VEZ</span><span>INTERVALO ±1 MIN</span><span>PEDRA ANTES DOS 3 ÚLTIMOS BRANCOS</span><strong id="wsNext"></strong></div>
-</section><section class="wf-panel"><div class="wf-head"><div><span class="tech-tag">WHITE FLOW</span><h2>FLUXO DE BRANCOS</h2><p>Quantidade de brancos por janela de 15 minutos</p></div><div class="wf-controls" aria-label="Escala do gráfico">
+<section class="wf-panel"><div class="wf-head"><div><span class="tech-tag">WHITE FLOW</span><h2>FLUXO DE BRANCOS</h2><p>Quantidade de brancos por janela de 15 minutos</p></div><div class="wf-controls" aria-label="Escala do gráfico">
 <button class="wf-scale" data-scale="10">10 MIN</button>
 <button class="wf-scale active" data-scale="15">15 MIN</button>
 <button class="wf-scale" data-scale="60">1 HORA</button>
@@ -53,9 +46,7 @@
   <div class="wf-market-item"><small>VOLATILIDADE</small><b id="wfVolatility">—</b></div>
   <div class="wf-market-item expectation"><small>EXPECTATIVA • PRÓXIMA HORA</small><b id="wfExpectation">—</b></div>
 </div>
-<div class="wf-box"><canvas id="wfChart"></canvas><div id="wfTip"></div></div><div class="wf-foot"><span id="wfRange">CARREGANDO...</span><span>JANELA ATUAL EM TEMPO REAL</span></div></section>
-
-<section class="color-signals" id="colorSignals">
+<div class="wf-box"><canvas id="wfChart"></canvas><div id="wfTip"></div></div><div class="wf-foot"><span id="wfRange">CARREGANDO...</span><span>JANELA ATUAL EM TEMPO REAL</span></div></section><div class="signal-row"><section class="color-signals" id="colorSignals">
   <div class="cs-head">
     <div>
       <span class="cs-kicker">RADAR DE CORES</span>
@@ -69,7 +60,16 @@
     <span>SG = minuto indicado</span><span>G1 = minuto seguinte</span><span>⚪ = cobertura</span>
     <b id="csNext"></b>
   </div>
-</section>
+</section><section class="white-signal stat-card" id="whiteSignal">
+  <div class="ws-head">
+    <div><span class="ws-kicker">RADAR DE BRANCO</span><h2>SINAL ATUAL • MARGEM ±1 MIN</h2></div>
+    <b id="wsState">MONITORANDO</b>
+  </div>
+  <div id="wsBody" class="ws-body"><span class="ws-wait">AGUARDANDO CONFLUÊNCIA • INTERVALO MÉDIO + PEDRA PAGANTE</span></div>
+  <div class="ws-foot"><span>1 SINAL POR VEZ</span><span>INTERVALO ±1 MIN</span><span>PEDRA ANTES DOS 3 ÚLTIMOS BRANCOS</span><strong id="wsNext"></strong></div>
+</section></div>
+
+
 <section class="terminal">
  <div class="terminal-head">
   <div><span class="tag">HISTÓRICO</span><h1>CATALOGADOR AO VIVO</h1></div>

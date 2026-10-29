@@ -332,3 +332,36 @@
   .white-signal.stat-card{width:calc(100% - 16px);margin:8px}
   .white-signal .ws-foot span:nth-child(3){display:none}
 }
+
+/* V2.0.9 — Radar de Cores + Radar de Branco lado a lado */
+.signal-row{
+  display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,.8fr);
+  gap:10px;margin:10px 8px;align-items:stretch;
+}
+.signal-row .color-signals,.signal-row .white-signal{
+  margin:0!important;width:auto!important;min-width:0!important;height:100%;
+}
+.signal-row .color-signals{display:flex;flex-direction:column}
+.signal-row .cs-list{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:5px;padding:0 10px 8px!important;
+}
+.signal-row .cs-head{padding:9px 10px 7px!important}
+.signal-row .cs-head h2{font-size:10px!important}
+.signal-row .cs-signal{min-height:31px!important;padding:4px 5px!important;gap:5px!important}
+.signal-row .cs-signal b{font-size:9px!important}
+.signal-row .cs-pick{font-size:11px!important}
+.signal-row .cs-signal strong{font-size:7px!important}
+.signal-row .cs-foot{margin-top:auto;padding:5px 10px!important;gap:8px!important}
+
+.signal-row .white-signal .ws-head{padding:9px 10px 6px!important}
+.signal-row .white-signal .ws-head h2{font-size:9px!important}
+.signal-row .white-signal .ws-body{margin:0 9px 7px!important;min-height:45px!important}
+.signal-row .white-signal .ws-foot{margin-top:auto;padding:5px 9px!important}
+.signal-row .white-signal{display:flex!important;flex-direction:column!important}
+
+@media(max-width:800px){
+  .signal-row{grid-template-columns:1fr;gap:8px;margin:8px}
+  .signal-row .cs-list{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .signal-row .white-signal{width:100%!important}
+}
