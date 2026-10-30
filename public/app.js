@@ -405,13 +405,13 @@ document.addEventListener('click',e=>{if(e.target?.id==='csCopy')csCopy()});
    Gatilho = recuperação próxima do intervalo médio (±2 rodadas ~= ±1 min)
    + pedra atual igual à pedra imediatamente anterior a um dos 3 últimos brancos.
    Janela do sinal = minuto central ±1 minuto. Após resolver, fica 60s visível. */
-const WSKEY='rb_white_signal_v206';
+const WSKEY='rb_white_signal_v210';
 let WSSTATE=null; try{WSSTATE=JSON.parse(localStorage.getItem(WSKEY)||'null')}catch(e){}
 function wsMinute(t){const d=new Date(t);d.setSeconds(0,0);return d.getTime()}
 function wsFmt(t){return new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',hour12:false})}
 function wsPayingStones(rows){
-  const a=[...rows].sort((x,y)=>x.ts-y.ts), out=[];
-  for(let i=1;i<a.length;i++) if(a[i].number===0 && a[i-1].number!==0) out.push({n:a[i-1].number,white:a[i].ts});
+  const a=[...rows].sort((x,y)=>x.ts-y.ts),out=[];
+  for(let i=1;i<a.length;i++) if(a[i].number===0&&a[i-1].number!==0) out.push({n:+a[i-1].number,white:a[i].ts});
   return out.slice(-3);
 }
 function wsAverage(rows){
@@ -420,42 +420,36 @@ function wsAverage(rows){
   return g.length?g.reduce((a,b)=>a+b,0)/g.length:null;
 }
 function wsEvaluate(rows){
-  const now=Date.now(), newest=rows[0];
+  const now=Date.now();
+  if(WSSTATE&&(!WSSTATE.created||now-WSSTATE.created>30*60000))WSSTATE=null;
   if(WSSTATE){
-    const hits=rows.filter(r=>r.number===0 && r.ts>=WSSTATE.from && r.ts<=WSSTATE.to);
-    if(hits.length && WSSTATE.status==='LIVE'){WSSTATE.status='WIN';WSSTATE.hit=hits[0].ts;WSSTATE.resolvedAt=now}
-    else if(now>WSSTATE.to && WSSTATE.status==='LIVE'){WSSTATE.status='LOSS';WSSTATE.resolvedAt=now}
-    if(WSSTATE.status!=='LIVE' && WSSTATE.resolvedAt && now-WSSTATE.resolvedAt>=60000) WSSTATE=null;
+    const hits=rows.filter(r=>r.number===0&&r.ts>=WSSTATE.from&&r.ts<=WSSTATE.to);
+    if(hits.length&&WSSTATE.status==='LIVE'){WSSTATE.status='WIN';WSSTATE.hit=hits[0].ts;WSSTATE.resolvedAt=now}
+    else if(now>WSSTATE.to&&WSSTATE.status==='LIVE'){WSSTATE.status='LOSS';WSSTATE.resolvedAt=now}
+    if(WSSTATE.status!=='LIVE'&&WSSTATE.resolvedAt&&now-WSSTATE.resolvedAt>=60000)WSSTATE=null;
   }
-  if(!WSSTATE && newest){
-    const avg=wsAverage(rows), recovery=rows.findIndex(r=>r.number===0), pay=wsPayingStones(rows);
-    const match=pay.find(x=>+x.n===+newest.number);
-    // ±2 rounds corresponds approximately to the requested ±1 minute.
-    if(avg!=null && recovery>=Math.max(1,avg-2) && recovery<=avg+2 && newest.number!==0 && match){
-      const center=wsMinute(newest.ts);
-      WSSTATE={status:'LIVE',created:now,center,from:center-60000,to:center+119999,payer:newest.number,avg:+avg.toFixed(1),recovery};
+  if(!WSSTATE&&rows.length){
+    const avg=wsAverage(rows),pay=wsPayingStones(rows),lastWhiteIndex=rows.findIndex(r=>r.number===0),payNums=new Set(pay.map(x=>+x.n));
+    if(avg!=null&&lastWhiteIndex>0&&payNums.size){
+      const lo=Math.max(1,Math.floor(avg-2)),hi=Math.ceil(avg+2);let trigger=null,triggerRecovery=null;
+      for(let i=lo;i<=Math.min(hi,lastWhiteIndex-1);i++){
+        const r=rows[i];if(r&&r.number!==0&&payNums.has(+r.number)){trigger=r;triggerRecovery=i;break}
+      }
+      if(trigger){
+        const center=wsMinute(trigger.ts);
+        WSSTATE={status:'LIVE',created:now,triggerTs:trigger.ts,center,from:center-60000,to:center+119999,payer:+trigger.number,avg:+avg.toFixed(1),recovery:triggerRecovery};
+      }
     }
   }
-  try{localStorage.setItem(WSKEY,JSON.stringify(WSSTATE))}catch(e){}
-  wsRender();
+  try{localStorage.setItem(WSKEY,JSON.stringify(WSSTATE))}catch(e){} wsRender();
 }
 function wsRender(){
-  const body=document.getElementById('wsBody'), st=document.getElementById('wsState'), nx=document.getElementById('wsNext');
-  if(!body||!st)return;
-  if(!WSSTATE){
-    st.textContent='MONITORANDO';st.style.color='';
-    body.innerHTML='<span class="ws-wait">AGUARDANDO CONFLUÊNCIA • INTERVALO MÉDIO + PEDRA PAGANTE</span>';
-    if(nx)nx.textContent=''; return;
-  }
-  const live=WSSTATE.status==='LIVE', win=WSSTATE.status==='WIN';
-  st.textContent=live?'SINAL ATIVO':win?'WIN BRANCO':'LOSS';
-  st.style.color=live?'#f3c72f':win?'#70e6a0':'#ff6b6b';
+  const body=document.getElementById('wsBody'),st=document.getElementById('wsState'),nx=document.getElementById('wsNext');if(!body||!st)return;
+  if(!WSSTATE){st.textContent='MONITORANDO';st.style.color='';body.innerHTML='<span class="ws-wait">AGUARDANDO CONFLUÊNCIA • INTERVALO MÉDIO + PEDRA PAGANTE</span>';if(nx)nx.textContent='';return}
+  const live=WSSTATE.status==='LIVE',win=WSSTATE.status==='WIN';st.textContent=live?'SINAL ATIVO':win?'WIN BRANCO':'LOSS';st.style.color=live?'#f3c72f':win?'#70e6a0':'#ff6b6b';
   const result=live?'AGUARDANDO ⚪':win?'⚪ ✅ WIN':'❌ LOSS';
   body.innerHTML=`<div class="ws-live"><span class="ws-stone"><i></i></span><div class="ws-main"><small>ENTRADA NO BRANCO</small><b>${wsFmt(WSSTATE.center)}</b><em>MARGEM ${wsFmt(WSSTATE.from)}–${wsFmt(WSSTATE.to)} • PAGANTE ${WSSTATE.payer}</em></div><strong class="ws-result ${WSSTATE.status==='LOSS'?'loss':''}">${result}</strong></div>`;
-  if(nx){
-    if(!live&&WSSTATE.resolvedAt){const sec=Math.max(0,Math.ceil((60000-(Date.now()-WSSTATE.resolvedAt))/1000));nx.textContent=sec?'NOVO SINAL EM '+sec+'S':'ATUALIZANDO…'}
-    else nx.textContent='INTERVALO MÉDIO '+WSSTATE.avg+' • RECUPERAÇÃO '+WSSTATE.recovery;
-  }
+  if(nx){if(!live&&WSSTATE.resolvedAt){const sec=Math.max(0,Math.ceil((60000-(Date.now()-WSSTATE.resolvedAt))/1000));nx.textContent=sec?'NOVO SINAL EM '+sec+'S':'ATUALIZANDO…'}else nx.textContent='INTERVALO MÉDIO '+WSSTATE.avg+' • RECUPERAÇÃO '+WSSTATE.recovery}
 }
 
 function render(rows){
