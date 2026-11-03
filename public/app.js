@@ -257,7 +257,11 @@ document.addEventListener('mousemove',e=>{if(e.target?.id==='wfChart')wfTip(e)})
 document.addEventListener('touchmove',e=>{if(e.target?.id==='wfChart')wfTip(e)},{passive:true});
 
 /* V2.0 — Radar de cores: lista automática de 15 minutos */
-const CSKEY='rb_color_signals_v2';
+const CSKEY='rb_color_signals_v22';
+const PERFKEY='rb_signal_perf_v22';
+let PERF=[];try{PERF=JSON.parse(localStorage.getItem(PERFKEY)||'[]')}catch(e){PERF=[]}
+function perfAdd(kind,s){if(s._logged||!['SG','G1','WSG','WG1','LOSS','WIN'].includes(s.status))return;s._logged=true;PERF.push({kind,t:s.t||s.center,status:s.status,score:s.score??null,at:Date.now()});PERF=PERF.slice(-500);try{localStorage.setItem(PERFKEY,JSON.stringify(PERF))}catch(e){}}
+function perfText(kind){const a=PERF.filter(x=>x.kind===kind).slice(-100);if(!a.length)return 'SEM HISTÓRICO';const wins=a.filter(x=>x.status!=='LOSS').length;return `${wins}/${a.length} ACERTOS REGISTRADOS`;}
 let CSSTATE=null;
 try{CSSTATE=JSON.parse(localStorage.getItem(CSKEY)||'null')}catch(e){CSSTATE=null}
 
@@ -299,18 +303,17 @@ function csPickColor(b){
   return {color,score:edge+coverage*.22,edge,coverage};
 }
 function csGenerate(rows, block){
-  const stats=csPositionStats(rows), start=block+15*60000;
+  const stats=csPositionStats(rows), now=Date.now(), start=csMinute(now)+60000;
   const candidates=[];
+  // Only FUTURE minutes. No forced 4–7 list.
   for(let i=0;i<15;i++){
     const t=start+i*60000, d=new Date(t), p=csPickColor(stats[d.getMinutes()%10]);
-    candidates.push({t,color:p.color,score:p.score,status:'PENDING'});
+    // Require an actual directional edge. Weak points are simply omitted.
+    if(p.edge>=.10 && p.score>=.12) candidates.push({t,color:p.color,score:+p.score.toFixed(3),status:'PENDING'});
   }
   candidates.sort((a,b)=>b.score-a.score);
-  // Dynamic 4–7 points: strongest 4, then add up to 3 only if reasonably close to #4.
-  const floor=candidates[Math.min(3,candidates.length-1)]?.score||0;
-  let chosen=candidates.filter((x,i)=>i<4 || (i<7 && x.score>=Math.max(.07,floor*.82))).slice(0,7);
-  chosen.sort((a,b)=>a.t-b.t);
-  return {block,start,signals:chosen,created:Date.now()};
+  const chosen=candidates.slice(0,4).sort((a,b)=>a.t-b.t);
+  return {block:csBlock(now),start,signals:chosen,created:now};
 }
 function csEvaluate(state, rows){
   const by=csRowsByMinute(rows);
@@ -337,6 +340,7 @@ function csEvaluate(state, rows){
     else if(rounds.length>=2) s.status='LOSS';
     else s.status='PENDING';
   });
+  state.signals.forEach(x=>perfAdd('COLOR',x));
   return state;
 }
 function csStatus(s){
@@ -349,47 +353,23 @@ function csStatus(s){
 }
 function csRender(rows){
   const now=Date.now(), block=csBlock(now);
-  // Generate current/next list if absent. Once the final signal + G1 is over, roll immediately.
-  if(!CSSTATE || !Array.isArray(CSSTATE.signals)) CSSTATE=csGenerate(rows,block-15*60000);
+  if(!CSSTATE || !Array.isArray(CSSTATE.signals) || now-CSSTATE.created>20*60000) CSSTATE=csGenerate(rows,block);
   CSSTATE=csEvaluate(CSSTATE,rows);
   const last=CSSTATE.signals.at(-1);
-
-  // Keep the completed list visible for 30 seconds after the LAST signal resolves.
-  // resolvedAt is stored so refreshes during the grace period do not skip it.
-  if(last && last.status!=='PENDING'){
-    if(!CSSTATE.resolvedAt) CSSTATE.resolvedAt=now;
-    if(now-CSSTATE.resolvedAt>=30000){
-      CSSTATE=csGenerate(rows,block);
-    }
-  } else {
-    CSSTATE.resolvedAt=null;
-    // Safety rollover only for genuinely stale lists; never hide a just-completed result.
-    if(CSSTATE.start < block && (!last || last.t < now-90000)){
-      CSSTATE=csGenerate(rows,block);
-    }
+  if(!CSSTATE.signals.length){
+    // Recheck periodically instead of manufacturing weak signals.
+    if(now-CSSTATE.created>=30000) CSSTATE=csGenerate(rows,block);
+  }else if(last && last.status!=='PENDING'){
+    if(!CSSTATE.resolvedAt)CSSTATE.resolvedAt=now;
+    if(now-CSSTATE.resolvedAt>=30000)CSSTATE=csGenerate(rows,block);
   }
   try{localStorage.setItem(CSKEY,JSON.stringify(CSSTATE))}catch(e){}
-
   const box=document.getElementById('csList');if(!box)return;
-  box.innerHTML=CSSTATE.signals.map(s=>`
-    <div class="cs-signal ${s.status==='LOSS'?'loss':s.status!=='PENDING'?'done':''}">
-      <b>${csFmt(s.t)}</b>
-      <span class="cs-pick">${csIcon(s.color)}<i>⚪</i></span>
-      <strong>${csStatus(s)}</strong>
-    </div>`).join('');
-  const first=CSSTATE.signals[0], final=CSSTATE.signals.at(-1);
-  const w=document.getElementById('csWindow');
-  if(w&&first&&final)w.textContent=csFmt(first.t)+'–'+csFmt(final.t)+' • '+CSSTATE.signals.length+' MELHORES PONTOS';
-  const nx=document.getElementById('csNext');
-  if(nx&&final){
-    if(last && last.status!=='PENDING' && CSSTATE.resolvedAt){
-      const sec=Math.max(0,Math.ceil((30000-(now-CSSTATE.resolvedAt))/1000));
-      nx.textContent=sec?'NOVA LISTA EM '+sec+'S':'ATUALIZANDO…';
-    }else{
-      const mins=Math.max(0,Math.ceil((final.t+60000-now)/60000));
-      nx.textContent=mins?'NOVA LISTA EM ~'+mins+' MIN':'AGUARDANDO RESULTADO';
-    }
-  }
+  if(!CSSTATE.signals.length) box.innerHTML='<div class="cs-signal" style="grid-column:1/-1"><strong>SEM ENTRADA • NENHUM PONTO ATINGIU O LIMIAR</strong></div>';
+  else box.innerHTML=CSSTATE.signals.map(s=>`<div class="cs-signal ${s.status==='LOSS'?'loss':s.status!=='PENDING'?'done':''}"><b>${csFmt(s.t)}</b><span class="cs-pick">${csIcon(s.color)}<i>⚪</i></span><strong>${csStatus(s)}</strong></div>`).join('');
+  const first=CSSTATE.signals[0],final=CSSTATE.signals.at(-1),w=document.getElementById('csWindow');
+  if(w)w.textContent=first&&final?csFmt(first.t)+'–'+csFmt(final.t)+' • '+CSSTATE.signals.length+' PONTOS QUALIFICADOS':'SEM ENTRADA • '+perfText('COLOR');
+  const nx=document.getElementById('csNext');if(nx)nx.textContent=perfText('COLOR');
 }
 async function csCopy(){
   if(!CSSTATE)return;
@@ -401,55 +381,55 @@ async function csCopy(){
 }
 document.addEventListener('click',e=>{if(e.target?.id==='csCopy')csCopy()});
 
-/* V2.0.6 — um único sinal de branco por vez.
-   Gatilho = recuperação próxima do intervalo médio (±2 rodadas ~= ±1 min)
-   + pedra atual igual à pedra imediatamente anterior a um dos 3 últimos brancos.
-   Janela do sinal = minuto central ±1 minuto. Após resolver, fica 60s visível. */
-const WSKEY='rb_white_signal_v210';
-let WSSTATE=null; try{WSSTATE=JSON.parse(localStorage.getItem(WSKEY)||'null')}catch(e){}
+/* V2.2 — branco prospectivo: nunca cria horário já iniciado/passado. */
+const WSKEY='rb_white_signal_v22';
+let WSSTATE=null;try{WSSTATE=JSON.parse(localStorage.getItem(WSKEY)||'null')}catch(e){}
 function wsMinute(t){const d=new Date(t);d.setSeconds(0,0);return d.getTime()}
 function wsFmt(t){return new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',hour12:false})}
-function wsPayingStones(rows){
-  const a=[...rows].sort((x,y)=>x.ts-y.ts),out=[];
-  for(let i=1;i<a.length;i++) if(a[i].number===0&&a[i-1].number!==0) out.push({n:+a[i-1].number,white:a[i].ts});
-  return out.slice(-3);
+function wsHistory(rows){
+  const whites=[];rows.forEach((r,i)=>{if(r.number===0)whites.push(i)});
+  const gaps=[];for(let i=0;i<whites.length-1&&i<12;i++)gaps.push(whites[i+1]-whites[i]);
+  gaps.sort((a,b)=>a-b);const med=gaps.length?gaps[Math.floor(gaps.length/2)]:null;
+  const asc=[...rows].sort((a,b)=>a.ts-b.ts),payers=[];
+  for(let i=1;i<asc.length;i++)if(asc[i].number===0&&asc[i-1].number!==0)payers.push(+asc[i-1].number);
+  return {med,payers:payers.slice(-8)};
 }
-function wsAverage(rows){
-  const w=rows.map((r,i)=>r.number===0?i:null).filter(x=>x!==null).slice(0,4),g=[];
-  for(let i=0;i<w.length-1;i++)g.push(w[i+1]-w[i]);
-  return g.length?g.reduce((a,b)=>a+b,0)/g.length:null;
+function wsCandidate(rows){
+  const now=Date.now(), recovery=rows.findIndex(r=>r.number===0),h=wsHistory(rows);
+  if(recovery<0||h.med==null||h.payers.length<3)return null;
+  const freq={};h.payers.forEach(n=>freq[n]=(freq[n]||0)+1);
+  const recent=rows.slice(0,4).filter(r=>r.number!==0).map(r=>+r.number);
+  const payer=recent.find(n=>(freq[n]||0)>=2); // recurrence, not a one-off match
+  if(payer==null)return null;
+  const remaining=h.med-recovery;
+  if(remaining<2||remaining>6)return null; // roughly 1–3 min ahead
+  let center=wsMinute(now+remaining*30000+60000);
+  let from=center-60000,to=center+119999;
+  if(from<=now+15000)return null; // strictly prospective
+  const score=Math.min(.99,.45+(freq[payer]||0)*.12+Math.max(0,3-Math.abs(remaining-3))*.05);
+  if(score<.69)return null;
+  return {status:'LIVE',created:now,center,from,to,payer,score:+score.toFixed(2),recovery,median:h.med};
 }
 function wsEvaluate(rows){
   const now=Date.now();
   if(WSSTATE&&(!WSSTATE.created||now-WSSTATE.created>30*60000))WSSTATE=null;
   if(WSSTATE){
-    const hits=rows.filter(r=>r.number===0&&r.ts>=WSSTATE.from&&r.ts<=WSSTATE.to);
-    if(hits.length&&WSSTATE.status==='LIVE'){WSSTATE.status='WIN';WSSTATE.hit=hits[0].ts;WSSTATE.resolvedAt=now}
-    else if(now>WSSTATE.to&&WSSTATE.status==='LIVE'){WSSTATE.status='LOSS';WSSTATE.resolvedAt=now}
+    const hit=rows.find(r=>r.number===0&&r.ts>=WSSTATE.from&&r.ts<=WSSTATE.to);
+    if(hit&&WSSTATE.status==='LIVE'){WSSTATE.status='WIN';WSSTATE.hit=hit.ts;WSSTATE.resolvedAt=now;perfAdd('WHITE',{...WSSTATE,t:WSSTATE.center})}
+    else if(now>WSSTATE.to&&WSSTATE.status==='LIVE'){WSSTATE.status='LOSS';WSSTATE.resolvedAt=now;perfAdd('WHITE',{...WSSTATE,t:WSSTATE.center})}
     if(WSSTATE.status!=='LIVE'&&WSSTATE.resolvedAt&&now-WSSTATE.resolvedAt>=60000)WSSTATE=null;
   }
-  if(!WSSTATE&&rows.length){
-    const avg=wsAverage(rows),pay=wsPayingStones(rows),lastWhiteIndex=rows.findIndex(r=>r.number===0),payNums=new Set(pay.map(x=>+x.n));
-    if(avg!=null&&lastWhiteIndex>0&&payNums.size){
-      const lo=Math.max(1,Math.floor(avg-2)),hi=Math.ceil(avg+2);let trigger=null,triggerRecovery=null;
-      for(let i=lo;i<=Math.min(hi,lastWhiteIndex-1);i++){
-        const r=rows[i];if(r&&r.number!==0&&payNums.has(+r.number)){trigger=r;triggerRecovery=i;break}
-      }
-      if(trigger){
-        const center=wsMinute(trigger.ts);
-        WSSTATE={status:'LIVE',created:now,triggerTs:trigger.ts,center,from:center-60000,to:center+119999,payer:+trigger.number,avg:+avg.toFixed(1),recovery:triggerRecovery};
-      }
-    }
-  }
-  try{localStorage.setItem(WSKEY,JSON.stringify(WSSTATE))}catch(e){} wsRender();
+  if(!WSSTATE)WSSTATE=wsCandidate(rows);
+  try{if(WSSTATE)localStorage.setItem(WSKEY,JSON.stringify(WSSTATE));else localStorage.removeItem(WSKEY)}catch(e){}
+  wsRender();
 }
 function wsRender(){
   const body=document.getElementById('wsBody'),st=document.getElementById('wsState'),nx=document.getElementById('wsNext');if(!body||!st)return;
-  if(!WSSTATE){st.textContent='MONITORANDO';st.style.color='';body.innerHTML='<span class="ws-wait">AGUARDANDO CONFLUÊNCIA • INTERVALO MÉDIO + PEDRA PAGANTE</span>';if(nx)nx.textContent='';return}
+  if(!WSSTATE){st.textContent='SEM ENTRADA';st.style.color='';body.innerHTML='<span class="ws-wait">SEM CONFLUÊNCIA SUFICIENTE • AGUARDANDO JANELA FUTURA</span>';if(nx)nx.textContent=perfText('WHITE');return}
   const live=WSSTATE.status==='LIVE',win=WSSTATE.status==='WIN';st.textContent=live?'SINAL ATIVO':win?'WIN BRANCO':'LOSS';st.style.color=live?'#f3c72f':win?'#70e6a0':'#ff6b6b';
   const result=live?'AGUARDANDO ⚪':win?'⚪ ✅ WIN':'❌ LOSS';
-  body.innerHTML=`<div class="ws-live"><span class="ws-stone"><i></i></span><div class="ws-main"><small>ENTRADA NO BRANCO</small><b>${wsFmt(WSSTATE.center)}</b><em>MARGEM ${wsFmt(WSSTATE.from)}–${wsFmt(WSSTATE.to)} • PAGANTE ${WSSTATE.payer}</em></div><strong class="ws-result ${WSSTATE.status==='LOSS'?'loss':''}">${result}</strong></div>`;
-  if(nx){if(!live&&WSSTATE.resolvedAt){const sec=Math.max(0,Math.ceil((60000-(Date.now()-WSSTATE.resolvedAt))/1000));nx.textContent=sec?'NOVO SINAL EM '+sec+'S':'ATUALIZANDO…'}else nx.textContent='INTERVALO MÉDIO '+WSSTATE.avg+' • RECUPERAÇÃO '+WSSTATE.recovery}
+  body.innerHTML=`<div class="ws-live"><span class="ws-stone"><i></i></span><div class="ws-main"><small>JANELA FUTURA • SCORE ${Math.round((WSSTATE.score||0)*100)}</small><b>${wsFmt(WSSTATE.center)}</b><em>MARGEM ${wsFmt(WSSTATE.from)}–${wsFmt(WSSTATE.to)} • PAGANTE ${WSSTATE.payer}</em></div><strong class="ws-result ${WSSTATE.status==='LOSS'?'loss':''}">${result}</strong></div>`;
+  if(nx)nx.textContent=!live&&WSSTATE.resolvedAt?`NOVO CICLO EM ${Math.max(0,Math.ceil((60000-(Date.now()-WSSTATE.resolvedAt))/1000))}S`:perfText('WHITE');
 }
 
 function render(rows){
