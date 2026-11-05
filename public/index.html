@@ -1,96 +1,15 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>RADAR BLITZ LITE</title><meta name="theme-color" content="#080a0d">
-<link rel="stylesheet" href="/style.css">
-</head>
-<body>
-<header class="topbar">
-  <div class="brand"><span class="brandbolt"><i class="blitz-bolt"></i></span><div><b>RADAR BLITZ</b><small>DOUBLE INTELLIGENCE</small></div></div>
-  <div class="status"><span class="pulse"></span><b>AO VIVO</b><span id="clock">--:--:--</span></div>
-</header>
-
-<main class="shell">
-<section class="command">
-  <div class="command-title"><span class="tag">DOUBLE</span><div><b>MONITOR DE RODADAS</b><small>200 resultados • atualização automática</small></div></div>
-  <div class="sync"><span>ÚLTIMA SINCRONIZAÇÃO</span><b id="updated">--:--:--</b></div>
-</section>
-
-<section class="metrics">
- <article class="metric">
-  <div class="metric-icon">◉</div><div class="metric-body"><label>ÚLTIMA PEDRA</label><div class="lastline"><div id="lastStone" class="stone hero neutral">–</div><div class="lastmeta"><small>GIROU ÀS</small><b id="lastTime">--:--:--</b></div></div></div>
- </article>
- <article class="metric">
-  <div class="metric-icon">↻</div><div class="metric-body"><label>RECUPERAÇÃO ATUAL</label><strong class="metric-number" id="recovery">--</strong><small>RODADAS DESDE O ÚLTIMO BRANCO</small><div class="subline">ÚLTIMO BRANCO <b id="lastWhite">--:--</b></div></div>
- </article>
- <article class="metric stats">
-  <div class="metric-icon">▥</div><div class="metric-body grow"><label>ESTATÍSTICAS • 200 RODADAS</label>
-   <div class="statrow"><div><i class="dot black"></i><span>PRETO</span><b id="blackPct">--%</b></div><div><i class="dot yellow"></i><span>AMARELO</span><b id="yellowPct">--%</b></div><div><i class="dot white"></i><span>BRANCO</span><b id="whitePct">--%</b></div></div>
-  </div>
- </article>
- <article class="metric">
-  <div class="metric-icon">⌁</div><div class="metric-body"><label>INTERVALO MÉDIO</label><strong class="metric-number" id="avgWhite">--</strong><small>RODADAS • 4 ÚLTIMOS BRANCOS</small></div>
- </article>
-</section>
-
-<section class="wf-panel"><div class="wf-head"><div><span class="tech-tag">WHITE FLOW</span><h2>FLUXO DE BRANCOS</h2><p>Quantidade de brancos por janela de 15 minutos</p></div><div class="wf-controls" aria-label="Escala do gráfico">
-<button class="wf-scale" data-scale="10">10 MIN</button>
-<button class="wf-scale active" data-scale="15">15 MIN</button>
-<button class="wf-scale" data-scale="60">1 HORA</button>
-</div></div><div id="wfMarket" class="wf-market" aria-live="polite">
-  <div class="wf-market-item"><small>TENDÊNCIA</small><b id="wfTrend">—</b></div>
-  <div class="wf-market-item"><small>SUPORTE</small><b id="wfSupport">—</b></div>
-  <div class="wf-market-item"><small>RESISTÊNCIA</small><b id="wfResistance">—</b></div>
-  <div class="wf-market-item"><small>MOMENTUM</small><b id="wfMomentum">—</b></div>
-  <div class="wf-market-item"><small>VOLATILIDADE</small><b id="wfVolatility">—</b></div>
-  <div class="wf-market-item expectation"><small>EXPECTATIVA • PRÓXIMA HORA</small><b id="wfExpectation">—</b></div>
-</div>
-<div class="wf-box"><canvas id="wfChart"></canvas><div id="wfTip"></div></div><div class="wf-foot"><span id="wfRange">CARREGANDO...</span><span>JANELA ATUAL EM TEMPO REAL</span></div></section><div class="signal-row"><section class="color-signals" id="colorSignals">
-  <div class="cs-head">
-    <div>
-      <span class="cs-kicker">RADAR DE CORES</span>
-      <h2>SINAIS QUALIFICADOS • G1 + COBERTURA</h2>
-      <small id="csWindow">PRÓXIMA JANELA</small>
-    </div>
-    <button id="csCopy" type="button">COPIAR LISTA</button>
-  </div>
-  <div id="csList" class="cs-list"></div>
-  <div class="cs-foot">
-    <span>SG = minuto indicado</span><span>G1 = minuto seguinte</span><span>⚪ = cobertura</span>
-    <b id="csNext"></b>
-  </div>
-</section><section class="white-signal stat-card" id="whiteSignal">
-  <div class="ws-head">
-    <div><span class="ws-kicker">RADAR DE BRANCO</span><h2>SINAL FUTURO • MARGEM ±1 MIN</h2></div>
-    <b id="wsState">MONITORANDO</b>
-  </div>
-  <div id="wsBody" class="ws-body"><span class="ws-wait">AGUARDANDO CONFLUÊNCIA • INTERVALO MÉDIO + PEDRA PAGANTE</span></div>
-  <div class="ws-foot"><span>1 SINAL POR VEZ</span><span>INTERVALO ±1 MIN</span><span>FILTRO ESTATÍSTICO</span><strong id="wsNext"></strong></div>
-</section></div>
-
-
-<section class="terminal">
- <div class="terminal-head">
-  <div><span class="tag">HISTÓRICO</span><h1>CATALOGADOR AO VIVO</h1></div>
-  <div class="legend"><span><i class="dot yellow"></i> AMARELO</span><span><i class="dot black"></i> PRETO</span><span><i class="dot white"></i> BRANCO</span></div>
- </div>
- <div class="grid-wrap"><div id="grid" class="grid"><div class="loading">CONECTANDO AO FEED DE DADOS...</div></div></div>
-</section>
-</main>
-<div id="whiteAlert" class="white-alert" aria-hidden="true">
-  <div id="whiteAlertCard" class="white-alert-card">
-    <div class="alert-kicker">RADAR BLITZ • EVENTO AO VIVO</div>
-    <div id="whiteAlertTitle" class="alert-title">BRANCO!</div>
-    <div id="whiteAlertSequence" class="alert-sequence">
-      <div class="alert-stone stone white"><span class="white-badge"><i class="blitz-bolt"></i></span></div>
-    </div>
-    <div id="whiteAlertSubtitle" class="alert-subtitle"></div>
-    <div class="alert-time-label">SAIU ÀS</div>
-    <div id="whiteAlertTime" class="alert-time">--:--:--</div>
-    <div class="alert-progress"></div>
-  </div>
-</div>
-<footer>RADAR BLITZ LITE <b>•</b> DOUBLE DATA TERMINAL</footer>
-<script src="/app.js"></script>
-</body></html>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090b0e"><title>RADAR BLITZ 3.0 | Análise Estatística</title><link rel="stylesheet" href="/style.css"></head><body>
+<header class="top"><div class="brand"><span class="bolt">ϟ</span><div><b>RADAR BLITZ <em>3.0</em></b><small>DOUBLE • TERMINAL ESTATÍSTICO</small></div></div><nav><a href="https://t.me/+Bvo-XEl02EgwOWUx" target="_blank" rel="noopener noreferrer">✈ TELEGRAM</a><a href="https://blitz4.casino/pt" target="_blank" rel="noopener noreferrer">↗ BLITZ</a><span id="status" class="status">● CONECTANDO</span></nav></header>
+<main class="shell"><div class="heading"><div><span class="eyebrow">INTELIGÊNCIA DE DADOS</span><h1>PAINEL ESTATÍSTICO</h1><p>Histórico observado • sem geração de sinais • horário de Brasília</p></div><div class="sync">ÚLTIMA SINCRONIZAÇÃO <b id="synced">—</b><small id="coverage">Verificando cobertura…</small></div></div>
+<section class="toolbar"><label>PERÍODO DE ANÁLISE <select id="period"><option value="1">1 HORA</option><option value="6">6 HORAS</option><option value="24" selected>24 HORAS</option><option value="168">7 DIAS</option><option value="custom">PERSONALIZADO</option></select></label><label id="startWrap" class="hidden">INÍCIO <input type="datetime-local" id="start"></label><label id="endWrap" class="hidden">FIM <input type="datetime-local" id="end"></label><button id="apply">ATUALIZAR ANÁLISE</button><span id="sample">— RODADAS</span></section>
+<section class="metrics"><article><small>ÚLTIMA PEDRA</small><div class="metricval" id="lastStone">—</div><span id="lastTime">—</span></article><article><small>RODADAS SEM BRANCO</small><div class="metricval" id="recovery">—</div><span>Recuperação observada</span></article><article><small>INTERVALO MÉDIO BRANCO</small><div class="metricval" id="avgWhite">—</div><span>Últimos 4 intervalos</span></article><article><small>HISTÓRICO ARMAZENADO</small><div class="metricval" id="total">—</div><span>Rodadas no banco D1</span></article></section>
+<section class="panels"><article class="panel wide"><div class="panelhead"><div><small>01 / DISTRIBUIÇÃO</small><h2>FREQUÊNCIA DAS CORES</h2></div><span id="freqN">—</span></div><div id="freq" class="freq"></div><div class="foot">Proporção teórica (roleta 0–14): branco 6,67%, amarelo 46,67%, preto 46,67%.</div></article>
+<article class="panel"><div class="panelhead"><div><small>02 / WHITE FLOW</small><h2>FLUXO DE BRANCOS</h2></div><select id="flowScale"><option value="10">10 MIN</option><option value="15" selected>15 MIN</option><option value="60">1 HORA</option></select></div><div class="plot" id="flow"></div><div class="foot">Contagens por janela completa; lacunas sem coleta não são zeros.</div></article>
+<article class="panel"><div class="panelhead"><div><small>03 / DISTRIBUIÇÃO</small><h2>INTERVALOS ENTRE BRANCOS</h2></div></div><div id="intervals" class="bars"></div><div class="foot" id="intervalSummary">—</div></article>
+<article class="panel"><div class="panelhead"><div><small>04 / PADRÕES</small><h2>SEQUÊNCIAS DE CORES</h2></div></div><div id="streaks" class="statgrid"></div></article>
+<article class="panel"><div class="panelhead"><div><small>05 / MATRIZ</small><h2>TRANSIÇÕES ENTRE CORES</h2></div></div><div id="transitions" class="tablewrap"></div></article>
+<article class="panel wide"><div class="panelhead"><div><small>06 / MAPA DE CALOR</small><h2>BRANCOS POR HORA DO DIA</h2></div></div><div id="heat" class="heat"></div><div class="foot">Quantidade de brancos por hora (0–23h) no período escolhido. Exposição desigual pode afetar comparações.</div></article>
+<article class="panel"><div class="panelhead"><div><small>07 / NÚMEROS</small><h2>FREQUÊNCIA DAS PEDRAS 0–14</h2></div></div><div id="numbers" class="bars"></div></article>
+<article class="panel"><div class="panelhead"><div><small>08 / COMPARAÇÃO</small><h2>PERÍODO ATUAL × ANTERIOR</h2></div></div><div id="comparison" class="statgrid"></div><div class="foot">Comparação com período imediatamente anterior de mesma duração.</div></article></section>
+<section class="catalog panel"><div class="panelhead"><div><small>09 / CATALOGADOR AO VIVO</small><h2>HISTÓRICO DE RODADAS</h2><p>Colunas fixas: 10 minutos por linha, duas pedras por minuto, mais recente no topo.</p></div><div class="choices"><button data-limit="200" class="selected">200</button><button data-limit="400">400</button><button data-limit="600">600</button><button id="csv">↓ CSV</button></div></div><div id="catalog" class="catalogrows"></div><div class="foot" id="catalogFoot">—</div></section>
+<footer>RADAR BLITZ V3.0.0 • Estatística descritiva. Resultados passados não preveem resultados futuros. <span id="error"></span></footer></main><script src="/config.js"></script><script src="/app.js"></script></body></html>
