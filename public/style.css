@@ -8,3 +8,25 @@
 @media(max-width:1100px){.stone{width:27px;height:27px;font-size:12px}.pair{gap:3px}.catalogrow{padding:7px 5px}.minutes{gap:2px}}
 @media(max-width:850px){.catalogrows{overflow-x:auto}.catalogrow{min-width:900px}.stone{width:32px;height:32px;font-size:14px}.pair{gap:5px}.minute-heat{grid-template-columns:repeat(10,1fr)}.white-alert{right:8px;left:8px;bottom:10px}}
 @media(max-width:550px){.catalogrow{min-width:900px}.stone{width:32px;height:32px;font-size:14px}.minute-label{font-size:9px}.pair{gap:5px}.minute-heat{grid-template-columns:repeat(6,1fr)}.paying-grid{gap:5px}.paying-card{padding:10px 4px}.paying-card .stone{width:40px;height:40px}.paying-card strong{font-size:20px}.paying-card small{font-size:9px}.white-alert strong{font-size:18px}}
+
+/* V3.0.2 — Evento branco: modal central escuro, proporcao quase quadrada */
+.white-alert{
+  position:fixed;top:50%;left:50%;right:auto;bottom:auto;
+  width:min(370px,calc(100vw - 32px));min-height:310px;
+  padding:30px 24px;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;text-align:center;gap:19px;
+  background:linear-gradient(155deg,#1b2029 0%,#0c0f15 100%);
+  color:#f7f7f7;border:2px solid #e7c03a;border-radius:20px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.46),0 20px 75px #000e,0 0 35px #e7c03a28;
+  transform:translate(-50%,-44%) scale(.88);opacity:0;
+  pointer-events:none;transition:transform .38s cubic-bezier(.2,.8,.2,1),opacity .38s;
+}
+.white-alert.active{transform:translate(-50%,-50%) scale(1);opacity:1;animation:whitePulseCenter 1.2s ease-in-out 2}
+.white-alert .alert-stone{width:106px;height:106px;flex:none;background:#fff;box-shadow:0 0 0 7px #e7c03a22,0 0 34px #f6d35255}
+.white-alert .white-emblem{width:76px;height:76px}
+.white-alert small{font-size:10px;color:#e7c03a;letter-spacing:1.5px;margin-bottom:7px}
+.white-alert strong{font-size:clamp(25px,6vw,34px);line-height:1.12;color:#fff;letter-spacing:.4px}
+.white-alert span{font-size:12px;color:#adb5c2;margin-top:11px}
+@keyframes whitePulseCenter{50%{box-shadow:0 0 0 9999px rgba(0,0,0,.46),0 20px 75px #000e,0 0 55px #e7c03a88}}
+@media(max-width:550px){.white-alert{left:50%;right:auto;top:50%;bottom:auto;width:min(340px,calc(100vw - 28px));min-height:295px;padding:26px 18px}.white-alert strong{font-size:27px}}
+@media(prefers-reduced-motion:reduce){.white-alert,.white-alert.active{transition:none;animation:none}}
