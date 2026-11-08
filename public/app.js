@@ -11,13 +11,20 @@ const pct=(n,total)=>total?`${(100*n/total).toFixed(1).replace('.',',')}%`:'—'
 const parse=a=>(a||[]).map(r=>({id:r.id,n:Number(r.number),ts:Date.parse(r.instant)})).filter(r=>Number.isFinite(r.ts)&&Number.isInteger(r.n)&&r.n>=0&&r.n<=14).sort((a,b)=>b.ts-a.ts);
 const safe=(s)=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let catalogLimit=200,catalogRows=[],analysisRows=[],previousRows=[],health=null,refreshing=false;
+const SNAPSHOT_KEY='radar-blitz-v304-last-good';
+let lastGoodAt=0, lastHistoryWindow='';
+function saveSnapshot(){try{localStorage.setItem(SNAPSHOT_KEY,JSON.stringify({at:Date.now(),catalogRows,analysisRows,previousRows,health,window:lastHistoryWindow}))}catch(e){console.warn('Cache local indisponível',e)}}
+function restoreSnapshot(){try{const s=JSON.parse(localStorage.getItem(SNAPSHOT_KEY)||'null');if(!s||!Array.isArray(s.catalogRows)||!s.catalogRows.length)return false;catalogRows=s.catalogRows;alertReady=true;lastAlertId=catalogRows[0]?.id||null;analysisRows=Array.isArray(s.analysisRows)?s.analysisRows:[];previousRows=Array.isArray(s.previousRows)?s.previousRows:[];health=s.health||null;lastGoodAt=s.at||0;lastHistoryWindow=s.window||'';render();$('#synced').textContent=health?.metadata?.last_sync?stamp(Date.parse(health.metadata.last_sync)):'—';$('#coverage').textContent='Exibindo último histórico salvo neste navegador';status('DADOS SALVOS • OFFLINE');setDataAge();return true}catch(e){console.warn('Snapshot inválido',e);return false}}
+function setDataAge(){const el=$('#dataAge');if(!el)return;if(!lastGoodAt){el.textContent='';return}const min=Math.max(0,Math.floor((Date.now()-lastGoodAt)/60000));el.textContent=min<1?'Dados recebidos há menos de 1 min':`Últimos dados recebidos há ${min} min`}
+
 const whiteMark='<span class="white-emblem"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="5" width="26" height="26" rx="6" fill="#f2c62f"/><path d="M20 7 11 20h7l-3 9 12-16h-8l4-6z" fill="#111"/></svg></span>';
 const stone=r=>`<span class="stone ${color(r.n)}" title="${stamp(r.ts)} • ${r.n}">${r.n===0?whiteMark:r.n}</span>`;
 async function get(path){const r=await fetch(API+path,{cache:'no-store'});if(!r.ok)throw Error(`API ${r.status}`);return r.json()}
 function status(msg,ok=false){$('#status').textContent='● '+msg;$('#status').classList.toggle('ok',ok)}
 function windowDates(){let now=new Date(),h=$('#period').value;if(h==='custom'){
  const a=new Date($('#start').value),b=new Date($('#end').value);if(!Number.isFinite(+a)||!Number.isFinite(+b)||b<=a)throw Error('Selecione um período válido');if(b-a>31*86400000)throw Error('Máximo de 31 dias por consulta');return [a,b]}
- return [new Date(now-Number(h)*3600000),now]}
+ // Janela estável de 5 minutos: consultas idênticas podem aproveitar o cache compartilhado.
+ const anchor=new Date(Math.floor(now.getTime()/300000)*300000);return [new Date(anchor-Number(h)*3600000),anchor]}
 async function loadHistory(start,end){let all=[];for(let page=0;page<110;page++){
  const j=await get(`/api/history?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}&page=${page}`);
  all.push(...(j.data||[]));if(!j.has_more)break;if(page===109)throw Error('Período excedeu limite de paginação; reduza o intervalo');
@@ -52,15 +59,36 @@ let alertReady=false,lastAlertId=null,whiteAlertTimer=null;
 function notifyWhites(rows){if(!rows.length)return;const newest=rows[0];if(!alertReady){lastAlertId=newest.id;alertReady=true;return}if(newest.id===lastAlertId)return;const idx=rows.findIndex(r=>r.id===lastAlertId);const fresh=(idx>0?rows.slice(0,idx):[newest]).reverse();lastAlertId=newest.id;const events=fresh.filter(r=>r.n===0);if(!events.length)return;const chronological=[...rows].reverse();const target=events.at(-1),pos=chronological.findIndex(r=>r.id===target.id);if(pos<0)return;let run=1;for(let i=pos-1;i>=0&&chronological[i].n===0;i--)run++;const prev=chronological[pos-1],prev2=chronological[pos-2],prev3=chronological[pos-3];let label=run>=4?'SEQUÊNCIA DE '+run+' BRANCOS':run===3?'BRANCO TRIPLO':run===2?'BRANCO DUPLO':prev2?.n===0&&prev?.n!==0?'BRANCO ESPELHADO':prev3?.n===0&&prev?.n!==0&&prev2?.n!==0?'BRANCO DENTADO':'BRANCO!';const el=$('#whiteAlert');el.innerHTML=`<div class="alert-stone">${whiteMark}</div><div><small>RADAR BLITZ • EVENTO REAL</small><strong>${label}</strong><span>${stamp(target.ts)} • pedra 0</span></div>`;el.classList.remove('active');void el.offsetWidth;el.classList.add('active');clearTimeout(whiteAlertTimer);whiteAlertTimer=setTimeout(()=>el.classList.remove('active'),7000)}
 
 function render(){metric(catalogRows);frequencies(analysisRows);flow(analysisRows);intervals(analysisRows);streaks(analysisRows);transitions(analysisRows);heat(analysisRows);numbers(analysisRows);comparison(analysisRows,previousRows);recoveryAnalysis(analysisRows);minuteAnalysis(analysisRows);positions(analysisRows);whitePatterns(analysisRows);deviations(analysisRows);payingStones(analysisRows);catalog(catalogRows);$('#sample').textContent=fmt(analysisRows.length)+' RODADAS ANALISADAS'}
-async function refresh(full=false){if(refreshing)return;refreshing=true;try{
- if(API.includes('SEU_SUBDOMINIO'))throw Error('Configure public/config.js com a URL do Worker publicado');
- const [a,b]=windowDates();const [h,c]=await Promise.all([get('/api/health'),get('/api/rounds?limit='+catalogLimit)]);health=h;catalogRows=parse(c.data);notifyWhites(catalogRows);$('#synced').textContent=h.metadata?.last_sync?stamp(Date.parse(h.metadata.last_sync)):'AINDA NÃO SINCRONIZADO';$('#coverage').textContent=h.metadata?.last_error?'ERRO NA COLETA: '+h.metadata.last_error:`${fmt(h.total)} rodadas armazenadas`;
- if(full||!analysisRows.length){analysisRows=await loadHistory(a,b);const delta=b-a;previousRows=await loadHistory(new Date(a-delta),a)}
- render();const fresh=h.metadata?.last_sync&&Date.now()-Date.parse(h.metadata.last_sync)<180000;status(fresh?'DADOS ATUALIZADOS':'COLETA ATRASADA',!!fresh);$('#error').textContent='';
- }catch(e){status('SEM CONEXÃO');$('#error').textContent=e.message;console.error(e)}finally{refreshing=false}}
+async function refresh(full=false){
+ if(refreshing)return;refreshing=true;
+ try{
+  if(API.includes('SEU_SUBDOMINIO'))throw Error('Configure public/config.js com a URL do Worker publicado');
+  const [a,b]=windowDates();
+  const wantedWindow=a.toISOString()+'|'+b.toISOString();
+  // A API de rodadas é prioritária: falha do endpoint de saúde não derruba o catálogo.
+  const settled=await Promise.allSettled([get('/api/health'),get('/api/rounds?limit='+catalogLimit)]);
+  const h=settled[0].status==='fulfilled'?settled[0].value:null;
+  const c=settled[1].status==='fulfilled'?settled[1].value:null;
+  let received=false;
+  if(h?.ok){health=h;received=true;$('#synced').textContent=h.metadata?.last_sync?stamp(Date.parse(h.metadata.last_sync)):'AINDA NÃO SINCRONIZADO';$('#coverage').textContent=h.metadata?.last_error?'ERRO NA COLETA: '+h.metadata.last_error:`${fmt(h.total)} rodadas armazenadas`}
+  if(c?.data?.length){const newRows=parse(c.data);if(newRows.length){catalogRows=newRows;notifyWhites(newRows);received=true}}
+  // O histórico de análises pode falhar independentemente do catálogo.
+  let historyError=null;
+  if(full||!analysisRows.length||lastHistoryWindow!==wantedWindow){
+   try{const fresh=await loadHistory(a,b);const delta=b-a;const prior=await loadHistory(new Date(a-delta),a);analysisRows=fresh;previousRows=prior;lastHistoryWindow=wantedWindow;received=true}
+   catch(e){historyError=e;console.warn('Histórico indisponível; preservando análises anteriores',e)}
+  }
+  if(received){lastGoodAt=Date.now();render();saveSnapshot();setDataAge()}
+  const failed=settled.some(x=>x.status==='rejected')||!h?.ok||!c?.data||!!historyError;
+  if(failed){const details=[...settled.filter(x=>x.status==='rejected').map(x=>x.reason?.message||'API indisponível'),historyError?.message].filter(Boolean);status('CONEXÃO INSTÁVEL');$('#error').textContent='Exibindo os últimos dados disponíveis. Tentando reconectar automaticamente. '+details.join(' • ');$('#dataAge').textContent=lastGoodAt?'Últimos dados disponíveis • '+Math.floor((Date.now()-lastGoodAt)/60000)+' min desde a última resposta':'Sem dados salvos neste navegador'}
+  else{const fresh=h.metadata?.last_sync&&Date.now()-Date.parse(h.metadata.last_sync)<180000;status(fresh?'DADOS ATUALIZADOS':'COLETA ATRASADA',!!fresh);$('#error').textContent=''}
+  if(!received&&!catalogRows.length&&!analysisRows.length)throw Error('API indisponível e nenhum histórico local salvo');
+ }catch(e){status('SEM CONEXÃO');$('#error').textContent=(catalogRows.length?'Exibindo dados salvos. ':'')+e.message;setDataAge();console.error(e)}
+ finally{refreshing=false}
+}
 $('#period').addEventListener('change',()=>{const custom=$('#period').value==='custom';$('#startWrap').classList.toggle('hidden',!custom);$('#endWrap').classList.toggle('hidden',!custom)});
 $('#apply').addEventListener('click',()=>refresh(true));$('#flowScale').addEventListener('change',()=>flow(analysisRows));
 $$('[data-limit]').forEach(b=>b.addEventListener('click',()=>{catalogLimit=Number(b.dataset.limit);$$('[data-limit]').forEach(x=>x.classList.toggle('selected',x===b));refresh(false)}));
 $('#csv').addEventListener('click',()=>{const text='id;data_hora_utc;numero;cor\n'+catalogRows.map(r=>`${r.id};${new Date(r.ts).toISOString()};${r.n};${names[color(r.n)]}`).join('\n');const url=URL.createObjectURL(new Blob(['\ufeff'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='radar-blitz-rodadas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),500)});
 // A coleta NÃO depende desta atualização do navegador: o Worker agendado a executa.
-setupCollapse();refresh(true);setInterval(()=>refresh(false),30000);setInterval(()=>refresh(true),300000);
+setupCollapse();restoreSnapshot();refresh(true);setInterval(()=>refresh(false),30000);setInterval(()=>refresh(true),300000);setInterval(setDataAge,60000);

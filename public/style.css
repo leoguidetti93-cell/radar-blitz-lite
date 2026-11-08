@@ -30,3 +30,25 @@
 @keyframes whitePulseCenter{50%{box-shadow:0 0 0 9999px rgba(0,0,0,.46),0 20px 75px #000e,0 0 55px #e7c03a88}}
 @media(max-width:550px){.white-alert{left:50%;right:auto;top:50%;bottom:auto;width:min(340px,calc(100vw - 28px));min-height:295px;padding:26px 18px}.white-alert strong{font-size:27px}}
 @media(prefers-reduced-motion:reduce){.white-alert,.white-alert.active{transition:none;animation:none}}
+
+/* V3.0.4 • Radar Blitz professional visual system */
+:root{--yellow:#f3cb34;--muted:#94a3b8}
+body{background:radial-gradient(ellipse 90% 35% at 50% -10%,#24271c 0%,transparent 72%),#090d12;color:#f2f4f8;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.top{background:rgba(11,15,21,.96);border-bottom:1px solid #28303b;box-shadow:0 10px 30px #0004;padding-top:13px;padding-bottom:13px}
+.brand{gap:14px}.brand b{font-weight:900;letter-spacing:.6px;font-size:18px}.brand small{letter-spacing:2.2px;color:#9ba8b9}
+.bolt{display:grid;place-items:center;width:49px;height:49px;min-width:49px;background:linear-gradient(145deg,#ffe36b,#efb915);border:1px solid #ffe887;border-radius:14px;color:#10151b;box-shadow:0 5px 24px #f5c82e20}
+.bolt svg{width:34px;height:34px;filter:drop-shadow(0 1px 0 #ffffff44)}
+.shell{max-width:1500px;margin:auto}.heading{padding:12px 0 8px}.heading h1{font-size:clamp(22px,2.5vw,32px);letter-spacing:-.8px}.eyebrow{letter-spacing:2px}.heading p{color:#a6b1c0}
+.toolbar,.metrics article,.panel,.catalog{background:linear-gradient(160deg,#151b23,#10151c);border:1px solid #303b49;border-radius:13px;box-shadow:0 8px 24px #0002}
+.panel{padding:19px}.panelhead h2{font-size:13px;letter-spacing:.7px}.panelhead small{color:#f3cb34;letter-spacing:1.5px}
+.metrics article{padding:19px;position:relative;overflow:hidden}.metrics article:before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#eec82d,transparent 80%);opacity:.65}.metricval{font-weight:850}
+button,select,input{border-radius:8px!important}button{transition:filter .15s,border-color .15s,transform .15s}button:hover{filter:brightness(1.1)}button:active{transform:translateY(1px)}
+.collapse-toggle{border-radius:8px;background:#1c2530;border-color:#39485b;padding:8px 11px}
+.stat{background:#0c1219;border:1px solid #2b3644;border-radius:9px}.stat strong{color:#f3cb34}
+.catalogrow{background:#0d141c;border:1px solid #293440;border-radius:9px}.catalogrow:nth-child(2n){background:#121a23}.rowtime{color:#f8d34d}
+.stone.black{background:linear-gradient(140deg,#495363,#252d39);border:1px solid #778497}.stone.yellow{background:linear-gradient(145deg,#ffe475,#f1c127);border:1px solid #f9d64d}.stone.white{background:#fafafa}
+.status{border-radius:999px!important}.status.ok{box-shadow:0 0 0 3px #2ea56b10}
+.data-age{display:block;color:#c9b77e;font-size:10px;margin-top:6px}
+#error:not(:empty){margin-top:8px;padding:10px 14px;border:1px solid #795e2d;background:#3c2e164d;border-radius:9px;color:#f2d392;font-size:12px}
+.white-alert{background:linear-gradient(145deg,#202935,#0c1016);border-color:#f3cb34;box-shadow:0 0 0 9999px #0009,0 20px 80px #000e,0 0 55px #f3cb3430}
+@media(max-width:550px){.brand b{font-size:16px}.brand small{font-size:8px;letter-spacing:1.2px}.bolt{width:43px;height:43px;min-width:43px}.bolt svg{width:30px;height:30px}.panel{padding:13px}.metrics article{padding:12px}}
