@@ -116,9 +116,22 @@ $('#guideContent').innerHTML=guideSections.map(([t,d])=>`<section><h3>${safe(t)}
 $('#howToOpen').addEventListener('click',()=>$('#howToDialog').showModal());
 $$('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>$('#'+b.dataset.closeDialog).close()));
 let globalSignal=null,signalPage=0,signalHasMore=false;
-function displaySignal(){const el=$('#signalLive');if(!globalSignal){el.innerHTML='<div class="signal-empty">Nenhuma sugestão qualificada no momento. Aguardando avaliação do motor estatístico.</div>';return}const t=parts(Date.parse(globalSignal.target_instant));const time=`${t.hour}:${t.minute}`;const c=globalSignal.color==='black'?'⚫':'🟡';el.innerHTML=`<div class="signal-box"><div class="signal-cell"><small>HORÁRIO • BRASÍLIA</small><strong>${time}</strong></div><div class="signal-cell"><small>ENTRADA • ATÉ G2</small><strong>${c} ⚪</strong></div><div class="signal-sub">${globalSignal.status==='pending'?'Aguardando rodada':globalSignal.status==='active'?'Em avaliação': 'Última sugestão encerrada'} • fonte oficial D1</div></div>`}
+function displaySignal(){const el=$('#signalLive');if(!globalSignal){el.innerHTML='<div class="signal-empty">Nenhuma sugestão qualificada no momento. Aguardando avaliação do motor estatístico.</div>';return}const t=parts(Date.parse(globalSignal.target_instant));const time=`${t.hour}:${t.minute}`;const c=globalSignal.color==='black'?'⚫':'🟡';el.innerHTML=`<div class="signal-box"><div class="signal-cell"><small>HORÁRIO • BRASÍLIA</small><strong>${time}</strong></div><div class="signal-cell"><small>ENTRADA • ATÉ G2</small><strong>${c} ⚪</strong></div><div class="signal-sub">${globalSignal.status==='pending'?'Programada com antecedência':globalSignal.status==='active'?'Em avaliação': 'Última sugestão encerrada'} • fonte oficial D1</div></div>`}
 async function loadSignal(){try{const r=await get('/api/signal');globalSignal=r.signal||null;displaySignal()}catch(e){if(!globalSignal)$('#signalLive').innerHTML='<div class="signal-empty">Sinal indisponível. Tentando reconectar…</div>'}}
-async function loadSignalHistory(){try{const r=await get('/api/signals?page='+signalPage);signalHasMore=!!r.has_more;$('#signalPage').textContent=String(signalPage+1);$('#signalPrev').disabled=signalPage===0;$('#signalNext').disabled=!signalHasMore;$('#signalHistorySummary').textContent='Resultados oficiais armazenados no banco D1 • SG, G1, G2 e LOSS • até 20 registros por página';$('#signalHistoryRows').innerHTML=(r.data||[]).length?`<table><thead><tr><th>HORÁRIO</th><th>ENTRADA</th><th>RESULTADO</th></tr></thead><tbody>${r.data.map(x=>`<tr><td>${stamp(Date.parse(x.target_instant))}</td><td>${x.color==='black'?'⚫':'🟡'} ⚪</td><td class="signal-result">${safe(x.status==='done'?(x.outcome||'—'):(x.status==='active'?'EM AVALIAÇÃO':'AGUARDANDO'))}</td></tr>`).join('')}</tbody></table>`:'<div class="signal-empty">Nenhum registro neste período.</div>'}catch(e){$('#signalHistoryRows').textContent='Não foi possível consultar o histórico global.'}}
+function signalResultLabel(x){
+ if(x.status!=='done')return x.status==='active'?'⏳ EM AVALIAÇÃO':'⏳ AGUARDANDO';
+ const raw=String(x.outcome||'');
+ if(raw==='LOSS')return '❌ LOSS';
+ if(raw==='SEM DADOS')return '⚠️ SEM DADOS';
+ const match=/^(SG|G1|G2)(?::(\d{1,2}))?$/.exec(raw);
+ if(!match)return safe(raw||'—');
+ // Resultados antigos só têm SG/G1/G2: não inventar a pedra vencedora.
+ if(match[2]===undefined)return '✅ '+match[1]+' (pedra não registrada)';
+ const n=Number(match[2]);
+ const stone=n===0?'⚪':n<=7?'🟡':n<=14?'⚫':'❔';
+ return stone+'✅ '+match[1];
+}
+async function loadSignalHistory(){try{const r=await get('/api/signals?page='+signalPage);signalHasMore=!!r.has_more;$('#signalPage').textContent=String(signalPage+1);$('#signalPrev').disabled=signalPage===0;$('#signalNext').disabled=!signalHasMore;$('#signalHistorySummary').textContent='Resultados oficiais armazenados no banco D1 • SG, G1, G2 e LOSS • até 20 registros por página';$('#signalHistoryRows').innerHTML=(r.data||[]).length?`<table><thead><tr><th>HORÁRIO</th><th>ENTRADA</th><th>RESULTADO</th></tr></thead><tbody>${r.data.map(x=>`<tr><td>${stamp(Date.parse(x.target_instant))}</td><td>${x.color==='black'?'⚫':'🟡'} ⚪</td><td class="signal-result">${signalResultLabel(x)}</td></tr>`).join('')}</tbody></table>`:'<div class="signal-empty">Nenhum registro neste período.</div>'}catch(e){$('#signalHistoryRows').textContent='Não foi possível consultar o histórico global.'}}
 $('#signalHistoryOpen').addEventListener('click',()=>{signalPage=0;$('#signalHistoryDialog').showModal();loadSignalHistory()});
 $('#signalPrev').addEventListener('click',()=>{if(signalPage>0){signalPage--;loadSignalHistory()}});
 $('#signalNext').addEventListener('click',()=>{if(signalHasMore){signalPage++;loadSignalHistory()}});
