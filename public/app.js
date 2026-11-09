@@ -92,3 +92,34 @@ $$('[data-limit]').forEach(b=>b.addEventListener('click',()=>{catalogLimit=Numbe
 $('#csv').addEventListener('click',()=>{const text='id;data_hora_utc;numero;cor\n'+catalogRows.map(r=>`${r.id};${new Date(r.ts).toISOString()};${r.n};${names[color(r.n)]}`).join('\n');const url=URL.createObjectURL(new Blob(['\ufeff'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='radar-blitz-rodadas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),500)});
 // A coleta NÃO depende desta atualização do navegador: o Worker agendado a executa.
 setupCollapse();restoreSnapshot();refresh(true);setInterval(()=>refresh(false),30000);setInterval(()=>refresh(true),300000);setInterval(setDataAge,60000);
+
+// V3.0.5 — leitura apenas de sinais oficiais gerados no Worker e persistidos no D1.
+const guideSections=[
+['01 • Frequência das cores','Mostra a proporção de branco, amarelo e preto no período escolhido. Compare com as proporções teóricas (6,67%, 46,67% e 46,67%).'],
+['02 • Fluxo de brancos','Quantidade de brancos em blocos de 10, 15 ou 60 minutos; lacunas de coleta não devem ser tratadas como zero.'],
+['03 • Intervalos entre brancos','Distribuição das quantidades de rodadas entre resultados brancos. Não indica quando o próximo branco deverá ocorrer.'],
+['04 • Sequências de cores','Comprimento das séries consecutivas de amarelo ou preto.'],
+['05 • Transições entre cores','Frequência com que uma cor aparece depois de outra no histórico.'],
+['06 • Brancos por hora','Contagem de brancos por hora do dia. Horas com quantidades diferentes de rodadas não são diretamente comparáveis.'],
+['07 • Frequência das pedras','Quantidade de vezes que cada número de 0 a 14 apareceu.'],
+['08 • Período atual × anterior','Compara a janela escolhida com outra janela de mesma duração imediatamente anterior.'],
+['09 • Radar de recuperação','Compara o intervalo atual sem branco com percentis de intervalos passados; não prevê recuperação.'],
+['10 • Análise por minuto','Distribui brancos pelos minutos 00–59; amostras pequenas podem criar concentrações ocasionais.'],
+['11 • 1ª × 2ª rodada','Compara a primeira e a segunda rodada dos minutos que tiveram exatamente duas rodadas registradas.'],
+['12 • Padrões de brancos','Duplo/triplo: brancos consecutivos. Espelhado: uma rodada entre brancos. Dentado: duas rodadas entre brancos.'],
+['13 • Desvios estatísticos','pp significa pontos percentuais. Exemplo: amarelo observado 48,2% menos teórico 46,67% = +1,53 pp. Valor positivo significa que apareceu mais que o esperado; negativo, menos. Não significa que a cor esteja atrasada ou vá compensar.'],
+['14 • Pedras pagantes','As três pedras (inclusive 0) mais frequentes nas cinco rodadas anteriores a cada branco. Janelas podem se sobrepor.'],
+['15 • Sugestão inteligente','Sugestões experimentais calculadas no servidor com regras verificáveis, até G2 e branco nas três tentativas. Se não houver evidência suficiente, o painel pode não emitir sinal. O histórico completo é global e não pode ser editado retroativamente.'],
+['16 • Catalogador','Histórico das rodadas por minuto, com até duas pedras por minuto e os resultados mais recentes primeiro.'],
+['Filtros e interpretação','O período selecionado muda as estatísticas, não o histórico global dos sinais. Acertar em até G2 não equivale a lucro: apostas adicionais e cobertura têm custo. Em roleta independente, uma cor + branco em três tentativas tem probabilidade teórica de 89,84%, mesmo sem qualquer padrão.']];
+$('#guideContent').innerHTML=guideSections.map(([t,d])=>`<section><h3>${safe(t)}</h3><p>${safe(d)}</p></section>`).join('');
+$('#howToOpen').addEventListener('click',()=>$('#howToDialog').showModal());
+$$('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>$('#'+b.dataset.closeDialog).close()));
+let globalSignal=null,signalPage=0,signalHasMore=false;
+function displaySignal(){const el=$('#signalLive');if(!globalSignal){el.innerHTML='<div class="signal-empty">Nenhuma sugestão qualificada no momento. Aguardando avaliação do motor estatístico.</div>';return}const t=parts(Date.parse(globalSignal.target_instant));const time=`${t.hour}:${t.minute}`;const c=globalSignal.color==='black'?'⚫':'🟡';el.innerHTML=`<div class="signal-box"><div class="signal-cell"><small>HORÁRIO • BRASÍLIA</small><strong>${time}</strong></div><div class="signal-cell"><small>ENTRADA • ATÉ G2</small><strong>${c} ⚪</strong></div><div class="signal-sub">${globalSignal.status==='pending'?'Aguardando rodada':globalSignal.status==='active'?'Em avaliação': 'Última sugestão encerrada'} • fonte oficial D1</div></div>`}
+async function loadSignal(){try{const r=await get('/api/signal');globalSignal=r.signal||null;displaySignal()}catch(e){if(!globalSignal)$('#signalLive').innerHTML='<div class="signal-empty">Sinal indisponível. Tentando reconectar…</div>'}}
+async function loadSignalHistory(){try{const r=await get('/api/signals?page='+signalPage);signalHasMore=!!r.has_more;$('#signalPage').textContent=String(signalPage+1);$('#signalPrev').disabled=signalPage===0;$('#signalNext').disabled=!signalHasMore;$('#signalHistorySummary').textContent='Resultados oficiais armazenados no banco D1 • SG, G1, G2 e LOSS • até 20 registros por página';$('#signalHistoryRows').innerHTML=(r.data||[]).length?`<table><thead><tr><th>HORÁRIO</th><th>ENTRADA</th><th>RESULTADO</th></tr></thead><tbody>${r.data.map(x=>`<tr><td>${stamp(Date.parse(x.target_instant))}</td><td>${x.color==='black'?'⚫':'🟡'} ⚪</td><td class="signal-result">${safe(x.status==='done'?(x.outcome||'—'):(x.status==='active'?'EM AVALIAÇÃO':'AGUARDANDO'))}</td></tr>`).join('')}</tbody></table>`:'<div class="signal-empty">Nenhum registro neste período.</div>'}catch(e){$('#signalHistoryRows').textContent='Não foi possível consultar o histórico global.'}}
+$('#signalHistoryOpen').addEventListener('click',()=>{signalPage=0;$('#signalHistoryDialog').showModal();loadSignalHistory()});
+$('#signalPrev').addEventListener('click',()=>{if(signalPage>0){signalPage--;loadSignalHistory()}});
+$('#signalNext').addEventListener('click',()=>{if(signalHasMore){signalPage++;loadSignalHistory()}});
+loadSignal();setInterval(loadSignal,30000);
