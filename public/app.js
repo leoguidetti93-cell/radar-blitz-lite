@@ -11,6 +11,7 @@ const pct=(n,total)=>total?`${(100*n/total).toFixed(1).replace('.',',')}%`:'—'
 const parse=a=>(a||[]).map(r=>({id:r.id,n:Number(r.number),ts:Date.parse(r.instant)})).filter(r=>Number.isFinite(r.ts)&&Number.isInteger(r.n)&&r.n>=0&&r.n<=14).sort((a,b)=>b.ts-a.ts);
 const safe=(s)=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let catalogLimit=200,catalogRows=[],analysisRows=[],previousRows=[],health=null,refreshing=false;
+let recognizedPatterns=[],patternCoverage=null;
 const SNAPSHOT_KEY='radar-blitz-v304-last-good';
 let lastGoodAt=0, lastHistoryWindow='';
 function saveSnapshot(){try{localStorage.setItem(SNAPSHOT_KEY,JSON.stringify({at:Date.now(),catalogRows,analysisRows,previousRows,health,window:lastHistoryWindow}))}catch(e){console.warn('Cache local indisponível',e)}}
@@ -18,7 +19,7 @@ function restoreSnapshot(){try{const s=JSON.parse(localStorage.getItem(SNAPSHOT_
 function setDataAge(){const el=$('#dataAge');if(!el)return;if(!lastGoodAt){el.textContent='';return}const min=Math.max(0,Math.floor((Date.now()-lastGoodAt)/60000));el.textContent=min<1?'Dados recebidos há menos de 1 min':`Últimos dados recebidos há ${min} min`}
 
 const whiteMark='<span class="white-emblem"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="5" width="26" height="26" rx="6" fill="#f2c62f"/><path d="M20 7 11 20h7l-3 9 12-16h-8l4-6z" fill="#111"/></svg></span>';
-const stone=r=>`<span class="stone ${color(r.n)}" title="${stamp(r.ts)} • ${r.n}">${r.n===0?whiteMark:r.n}</span>`;
+const stone=(r,mark='')=>`<span class="stone ${color(r.n)} ${mark?'pattern-'+mark:''}" title="${stamp(r.ts)} • ${r.n}${mark?' • padrão '+(mark==='hit'?'confirmado':mark==='watch'?'em observação':'sem branco nas 5 rodadas'):''}">${r.n===0?whiteMark:r.n}</span>`;
 async function get(path){const r=await fetch(API+path,{cache:'no-store'});if(!r.ok)throw Error(`API ${r.status}`);return r.json()}
 function status(msg,ok=false){$('#status').textContent='● '+msg;$('#status').classList.toggle('ok',ok)}
 function windowDates(){let now=new Date(),h=$('#period').value;if(h==='custom'){
@@ -42,7 +43,33 @@ function heat(rows){const cnt=Array(24).fill(0),exposure=Array(24).fill(0);for(c
 function numbers(rows){let count=Array(15).fill(0);rows.forEach(r=>count[r.n]++);const max=Math.max(1,...count);$('#numbers').innerHTML=count.map((v,i)=>`<div class="barline"><span>${String(i).padStart(2,'0')}</span><div class="track"><div class="fill ${color(i)}" style="width:${100*v/max}%"></div></div><b>${v}</b></div>`).join('')}
 function comparison(now,prev){const a=now.length,b=prev.length;$('#comparison').innerHTML=['white','yellow','black'].map(c=>{let x=now.filter(r=>color(r.n)===c).length,y=prev.filter(r=>color(r.n)===c).length;return `<div class="stat"><small>${names[c]}</small><strong>${pct(x,a)}</strong><span>Anterior: ${pct(y,b)}</span></div>`}).join('')+`<div class="stat"><small>AMOSTRA</small><strong>${fmt(a)}</strong><span>Anterior: ${fmt(b)}</span></div>`}
 function blockKey(t){const p=parts(t);return `${p.year}-${p.month}-${p.day}T${p.hour}:${String(Math.floor(+p.minute/10)*10).padStart(2,'0')}`}
-function catalog(rows){const groups=new Map();for(const r of rows){const k=blockKey(r.ts);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}let html='';for(const [key,list] of groups){const slots=Array.from({length:10},()=>[]);for(const r of list){const minute=Number(parts(r.ts).minute)%10;slots[minute].push(r)}slots.forEach(x=>x.sort((a,b)=>a.ts-b.ts));const label=key.slice(11);html+=`<div class="catalogrow"><div class="rowtime">${safe(label)}</div><div class="minutes">${slots.map((arr,i)=>`<div class="minute"><span class="minute-label">${String((+label.slice(3)+i)%60).padStart(2,'0')}</span><div class="pair">${[0,1].map(j=>arr[j]?stone(arr[j]):'<span class="stone empty">·</span>').join('')}</div></div>`).join('')}</div></div>`}$('#catalog').innerHTML=html||'<div class="emptymsg">Ainda não existem rodadas armazenadas.</div>';$('#catalogFoot').textContent=`${rows.length} rodadas disponíveis • ${groups.size} blocos de 10 minutos • até ${catalogLimit} solicitadas`}
+function strongLines(rows){
+ const groups=Array.from({length:6},(_,i)=>({start:i*10,whites:0,total:0}));
+ for(const r of rows){const m=Number(parts(r.ts).minute);const g=groups[Math.floor(m/10)];g.total++;if(r.n===0)g.whites++}
+ const ranked=groups.sort((a,b)=>b.whites-a.whites||(b.total?b.whites/b.total:0)-(a.total?a.whites/a.total:0));
+ const max=Math.max(1,...ranked.map(g=>g.whites));
+ $('#strongLines').innerHTML=ranked.map((g,i)=>`<div class="barline"><span>${i+1}º ${String(g.start).padStart(2,'0')}–${String(g.start+9).padStart(2,'0')}</span><div class="track"><div class="fill yellow" style="width:${100*g.whites/max}%"></div></div><b>${g.whites} ⚪ <small>${pct(g.whites,g.total)} • ${g.total} rod.</small></b></div>`).join('');
+}
+function patternKey(a){return a.join('>')}
+function patternMarks(rows){
+ const selected=new Set(recognizedPatterns.map(p=>p.key));const marks=new Map();
+ const a=[...rows].reverse();
+ for(let i=0;i<a.length;i++)for(const len of [2,3]){
+  if(i+len>a.length)continue;const key=patternKey(a.slice(i,i+len).map(r=>r.n));if(!selected.has(key))continue;
+  const next=a.slice(i+len,i+len+5);const complete=next.length===5;
+  const hit=next.some(r=>r.n===0);const state=hit?'hit':complete?'miss':'watch';
+  for(let j=i;j<i+len;j++){const id=String(a[j].id),prev=marks.get(id);if(!prev||({hit:3,watch:2,miss:1}[state]>{hit:3,watch:2,miss:1}[prev]))marks.set(id,state)}
+ }
+ return marks;
+}
+function showPatterns(){
+ const el=$('#patternList');const summary=$('#patternSummary');if(!recognizedPatterns.length){el.innerHTML='<div class="emptymsg">Nenhum padrão com amostra suficiente identificado.</div>';return}
+ const st=n=>`<span class="mini-pattern-stone ${color(n)}">${n===0?'⚡':n}</span>`;
+ el.innerHTML=recognizedPatterns.slice(0,8).map(p=>`<div class="pattern-item"><div class="pattern-stones">${p.numbers.map(st).join('<span class="pattern-arrow">›</span>')}</div><div class="pattern-count"><strong>${p.recentHits}/${p.recentTotal} <small>3H</small></strong><span>${pct(p.hits,p.total)} global • ${p.hits}/${p.total}</span></div></div>`).join('');
+ summary.textContent=`${recognizedPatterns.length} padrões qualificados • últimas 3 horas vs. ${patternCoverage?.scanned?.toLocaleString('pt-BR')||'—'} rodadas históricas${patternCoverage?.truncated?' (histórico parcial; limite de segurança)':''}`;
+}
+async function loadPatterns(){try{const r=await get('/api/patterns');recognizedPatterns=r.patterns||[];patternCoverage=r.coverage;showPatterns();catalog(catalogRows)}catch(e){if(!recognizedPatterns.length)$('#patternSummary').textContent='Padrões indisponíveis. Verifique se o Worker V3.0.7 foi publicado.'}}
+function catalog(rows){const marks=patternMarks(rows);const groups=new Map();for(const r of rows){const k=blockKey(r.ts);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}let html='';for(const [key,list] of groups){const slots=Array.from({length:10},()=>[]);for(const r of list){const minute=Number(parts(r.ts).minute)%10;slots[minute].push(r)}slots.forEach(x=>x.sort((a,b)=>a.ts-b.ts));const label=key.slice(11);html+=`<div class="catalogrow"><div class="rowtime">${safe(label)}</div><div class="minutes">${slots.map((arr,i)=>`<div class="minute"><span class="minute-label">${String((+label.slice(3)+i)%60).padStart(2,'0')}</span><div class="pair">${[0,1].map(j=>arr[j]?stone(arr[j],marks.get(String(arr[j].id))||''):'<span class="stone empty">·</span>').join('')}</div></div>`).join('')}</div></div>`}$('#catalog').innerHTML=html||'<div class="emptymsg">Ainda não existem rodadas armazenadas.</div>';$('#catalogFoot').textContent=`${rows.length} rodadas disponíveis • ${groups.size} blocos de 10 minutos • até ${catalogLimit} solicitadas`}
 
 function stat(label,value,detail=''){return `<div class="stat"><small>${label}</small><strong>${value}</strong><span>${detail}</span></div>`}
 function gapsOf(rows){const a=[...rows].reverse(),idx=a.map((r,i)=>r.n===0?i:-1).filter(i=>i>=0);return idx.slice(1).map((x,i)=>x-idx[i]-1)}
@@ -58,7 +85,7 @@ function setupCollapse(){document.querySelectorAll('.panels > .panel').forEach((
 let alertReady=false,lastAlertId=null,whiteAlertTimer=null;
 function notifyWhites(rows){if(!rows.length)return;const newest=rows[0];if(!alertReady){lastAlertId=newest.id;alertReady=true;return}if(newest.id===lastAlertId)return;const idx=rows.findIndex(r=>r.id===lastAlertId);const fresh=(idx>0?rows.slice(0,idx):[newest]).reverse();lastAlertId=newest.id;const events=fresh.filter(r=>r.n===0);if(!events.length)return;const chronological=[...rows].reverse();const target=events.at(-1),pos=chronological.findIndex(r=>r.id===target.id);if(pos<0)return;let run=1;for(let i=pos-1;i>=0&&chronological[i].n===0;i--)run++;const prev=chronological[pos-1],prev2=chronological[pos-2],prev3=chronological[pos-3];let label=run>=4?'SEQUÊNCIA DE '+run+' BRANCOS':run===3?'BRANCO TRIPLO':run===2?'BRANCO DUPLO':prev2?.n===0&&prev?.n!==0?'BRANCO ESPELHADO':prev3?.n===0&&prev?.n!==0&&prev2?.n!==0?'BRANCO DENTADO':'BRANCO!';const el=$('#whiteAlert');el.innerHTML=`<div class="alert-stone">${whiteMark}</div><div><small>RADAR BLITZ • EVENTO REAL</small><strong>${label}</strong><span>${stamp(target.ts)} • pedra 0</span></div>`;el.classList.remove('active');void el.offsetWidth;el.classList.add('active');clearTimeout(whiteAlertTimer);whiteAlertTimer=setTimeout(()=>el.classList.remove('active'),7000)}
 
-function render(){metric(catalogRows);frequencies(analysisRows);flow(analysisRows);intervals(analysisRows);streaks(analysisRows);transitions(analysisRows);heat(analysisRows);numbers(analysisRows);comparison(analysisRows,previousRows);recoveryAnalysis(analysisRows);minuteAnalysis(analysisRows);positions(analysisRows);whitePatterns(analysisRows);deviations(analysisRows);payingStones(analysisRows);catalog(catalogRows);$('#sample').textContent=fmt(analysisRows.length)+' RODADAS ANALISADAS'}
+function render(){metric(catalogRows);frequencies(analysisRows);flow(analysisRows);intervals(analysisRows);streaks(analysisRows);transitions(analysisRows);heat(analysisRows);numbers(analysisRows);comparison(analysisRows,previousRows);recoveryAnalysis(analysisRows);minuteAnalysis(analysisRows);positions(analysisRows);whitePatterns(analysisRows);deviations(analysisRows);payingStones(analysisRows);strongLines(analysisRows);showPatterns();catalog(catalogRows);$('#sample').textContent=fmt(analysisRows.length)+' RODADAS ANALISADAS'}
 async function refresh(full=false){
  if(refreshing)return;refreshing=true;
  try{
@@ -91,7 +118,7 @@ $('#apply').addEventListener('click',()=>refresh(true));$('#flowScale').addEvent
 $$('[data-limit]').forEach(b=>b.addEventListener('click',()=>{catalogLimit=Number(b.dataset.limit);$$('[data-limit]').forEach(x=>x.classList.toggle('selected',x===b));refresh(false)}));
 $('#csv').addEventListener('click',()=>{const text='id;data_hora_utc;numero;cor\n'+catalogRows.map(r=>`${r.id};${new Date(r.ts).toISOString()};${r.n};${names[color(r.n)]}`).join('\n');const url=URL.createObjectURL(new Blob(['\ufeff'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='radar-blitz-rodadas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),500)});
 // A coleta NÃO depende desta atualização do navegador: o Worker agendado a executa.
-setupCollapse();restoreSnapshot();refresh(true);setInterval(()=>refresh(false),30000);setInterval(()=>refresh(true),300000);setInterval(setDataAge,60000);
+setupCollapse();restoreSnapshot();refresh(true);loadPatterns();setInterval(loadPatterns,300000);setInterval(()=>refresh(false),30000);setInterval(()=>refresh(true),300000);setInterval(setDataAge,60000);
 
 // V3.0.5 — leitura apenas de sinais oficiais gerados no Worker e persistidos no D1.
 const guideSections=[
@@ -107,6 +134,8 @@ const guideSections=[
 ['10 • Análise por minuto','Distribui brancos pelos minutos 00–59; amostras pequenas podem criar concentrações ocasionais.'],
 ['11 • 1ª × 2ª rodada','Compara a primeira e a segunda rodada dos minutos que tiveram exatamente duas rodadas registradas.'],
 ['12 • Padrões de brancos','Duplo/triplo: brancos consecutivos. Espelhado: uma rodada entre brancos. Dentado: duas rodadas entre brancos.'],
+['17 • Identificador de padrões','Compara sequências exatas de 2 ou 3 pedras no histórico armazenado com as últimas 3 horas. Conta um acerto se aparecer branco nas cinco rodadas seguintes; exige amostra mínima. Contornos no catalogador: verde = confirmado, amarelo = em observação, cinza = sem branco nas cinco rodadas. Padrões não garantem resultados futuros.'],
+['18 • Linhas fortes','Classifica as seis linhas de dez minutos por brancos no período selecionado. Mostra também brancos/rodadas para comparar exposição desigual.'],
 ['13 • Desvios estatísticos','pp significa pontos percentuais. Exemplo: amarelo observado 48,2% menos teórico 46,67% = +1,53 pp. Valor positivo significa que apareceu mais que o esperado; negativo, menos. Não significa que a cor esteja atrasada ou vá compensar.'],
 ['14 • Pedras pagantes','As três pedras (inclusive 0) mais frequentes nas cinco rodadas anteriores a cada branco. Janelas podem se sobrepor.'],
 ['15 • Sugestão inteligente','Sugestões experimentais calculadas no servidor com regras verificáveis, até G2 e branco nas três tentativas. Se não houver evidência suficiente, o painel pode não emitir sinal. O histórico completo é global e não pode ser editado retroativamente.'],
