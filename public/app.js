@@ -160,8 +160,17 @@ function signalResultLabel(x){
  const stone=n===0?'⚪':n<=7?'🟡':n<=14?'⚫':'❔';
  return stone+'✅ '+match[1];
 }
+async function loadSignalStats(){
+ const el=$('#signalHistoryStats');if(!el)return;
+ try{const r=await get('/api/signal-stats');const x=r.stats||{};
+  const tile=(title,wins,total,losses)=>{wins=Number(wins||0);total=Number(total||0);losses=Number(losses||0);const rate=total?(100*wins/total):0;
+   return `<section class="signal-stat-tile"><small>${title}</small><strong>${total?pct(wins,total):'—'}</strong><span>${fmt(wins)} WINS / ${fmt(total)} sinais</span><span>${fmt(losses)} LOSS</span><div class="signal-stat-track"><div style="width:${rate}%"></div></div></section>`;
+  };
+  el.innerHTML=tile('ASSERTIVIDADE HISTÓRICA',x.wins,x.total,x.losses)+tile('ASSERTIVIDADE HOJE • BRASÍLIA',x.today_wins,x.today_total,x.today_losses);
+ }catch(e){el.textContent='Não foi possível carregar as taxas de assertividade.'}
+}
 async function loadSignalHistory(){try{const r=await get('/api/signals?page='+signalPage);signalHasMore=!!r.has_more;$('#signalPage').textContent=String(signalPage+1);$('#signalPrev').disabled=signalPage===0;$('#signalNext').disabled=!signalHasMore;$('#signalHistorySummary').textContent='Resultados oficiais armazenados no banco D1 • SG, G1, G2 e LOSS • até 20 registros por página';$('#signalHistoryRows').innerHTML=(r.data||[]).length?`<table><thead><tr><th>HORÁRIO</th><th>ENTRADA</th><th>RESULTADO</th></tr></thead><tbody>${r.data.map(x=>`<tr><td>${stamp(Date.parse(x.target_instant))}</td><td>${x.color==='black'?'⚫':'🟡'} ⚪</td><td class="signal-result">${signalResultLabel(x)}</td></tr>`).join('')}</tbody></table>`:'<div class="signal-empty">Nenhum registro neste período.</div>'}catch(e){$('#signalHistoryRows').textContent='Não foi possível consultar o histórico global.'}}
-$('#signalHistoryOpen').addEventListener('click',()=>{signalPage=0;$('#signalHistoryDialog').showModal();loadSignalHistory()});
+$('#signalHistoryOpen').addEventListener('click',()=>{signalPage=0;$('#signalHistoryDialog').showModal();loadSignalStats();loadSignalHistory()});
 $('#signalPrev').addEventListener('click',()=>{if(signalPage>0){signalPage--;loadSignalHistory()}});
 $('#signalNext').addEventListener('click',()=>{if(signalHasMore){signalPage++;loadSignalHistory()}});
 loadSignal();setInterval(loadSignal,30000);

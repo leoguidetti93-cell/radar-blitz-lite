@@ -90,3 +90,14 @@ button,select,input{border-radius:8px!important}button{transition:filter .15s,bo
   }
   .panel:has(.pattern-list) + .panel .bars .barline > b small { font-size: 8px; }
 }
+
+/* V3.0.8 — Indicadores de assertividade no histórico de sugestões */
+.signal-stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 16px}
+.signal-stat-tile{min-width:0;display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid #354252;border-radius:12px;background:#0c121a}
+.signal-stat-tile small{color:#f3cb34;font-size:10px;font-weight:800;letter-spacing:.8px}
+.signal-stat-tile strong{color:#76d4a3;font-size:29px;line-height:1.2;font-weight:900}
+.signal-stat-tile span{color:#aab8c9;font-size:11px}
+.signal-stat-track{height:7px;border-radius:10px;background:#26313c;overflow:hidden;margin-top:5px}
+.signal-stat-track>div{height:100%;background:#45c987;border-radius:10px}
+#signalHistorySummary{font-size:11px;color:#9aabba;margin-bottom:12px}
+@media(max-width:560px){.signal-stats-grid{grid-template-columns:1fr}.signal-stat-tile{padding:12px}}
