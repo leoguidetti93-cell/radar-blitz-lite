@@ -101,3 +101,9 @@ button,select,input{border-radius:8px!important}button{transition:filter .15s,bo
 .signal-stat-track>div{height:100%;background:#45c987;border-radius:10px}
 #signalHistorySummary{font-size:11px;color:#9aabba;margin-bottom:12px}
 @media(max-width:560px){.signal-stats-grid{grid-template-columns:1fr}.signal-stat-tile{padding:12px}}
+
+/* V3.0.9: desvios horizontal e sugestoes pareadas */
+.deviation-panel .statgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.deviation-panel .stat{padding:10px 14px}.deviation-panel .stat strong{font-size:20px}
+.white-signal-panel{min-height:260px}.white-window{text-align:center;width:100%;background:#0b1017;border:1px solid #303b49;border-radius:12px;padding:16px}.white-window strong{display:block;font-size:30px;color:#f3cb34}.white-window small{display:block;color:#a5b4c7}.white-window .window-range{color:#fff;font-size:16px;margin-top:9px}.white-window .window-note{color:#a9b8c8;margin-top:8px;font-size:11px}
+@media(max-width:850px){.deviation-panel .statgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:550px){.deviation-panel .statgrid{gap:4px}.deviation-panel .stat{padding:7px 5px}.deviation-panel .stat strong{font-size:15px}}
