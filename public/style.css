@@ -107,3 +107,16 @@ button,select,input{border-radius:8px!important}button{transition:filter .15s,bo
 .deviation-panel .stat{padding:10px 14px}.deviation-panel .stat strong{font-size:20px}
 .white-signal-panel{min-height:260px}.white-window{text-align:center;width:100%;background:#0b1017;border:1px solid #303b49;border-radius:12px;padding:16px}.white-window strong{display:block;font-size:30px;color:#f3cb34}.white-window small{display:block;color:#a5b4c7}.white-window .window-range{color:#fff;font-size:16px;margin-top:9px}.white-window .window-note{color:#a9b8c8;margin-top:8px;font-size:11px}
 @media(max-width:850px){.deviation-panel .statgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:550px){.deviation-panel .statgrid{gap:4px}.deviation-panel .stat{padding:7px 5px}.deviation-panel .stat strong{font-size:15px}}
+
+/* V3.0.10 — compactação pontual dos motores no celular */
+@media(max-width:600px){
+ .signal-panel,.white-signal-panel{min-height:0}
+ .signal-panel .signal-live,.white-signal-panel .signal-live{min-height:80px}
+ .signal-panel .panelhead,.white-signal-panel .panelhead{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:9px}
+ .signal-panel .panelhead>div,.white-signal-panel .panelhead>div{min-width:0}
+ .signal-panel .panelhead h2,.white-signal-panel .panelhead h2{font-size:12px;line-height:1.4}
+ .signal-panel .history-toggle,.white-signal-panel .history-toggle{font-size:10px;padding:9px;max-width:128px;white-space:normal}
+ .signal-panel .signal-empty,.white-signal-panel .signal-empty{padding:15px 8px}
+ .white-window{padding:12px}.white-window strong{font-size:26px}
+ .radar-dialog .dialog-head h2{font-size:15px}.radar-dialog .dialog-head button{flex-shrink:0}
+}
