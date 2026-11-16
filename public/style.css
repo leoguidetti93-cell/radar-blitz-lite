@@ -120,3 +120,12 @@ button,select,input{border-radius:8px!important}button{transition:filter .15s,bo
  .white-window{padding:12px}.white-window strong{font-size:26px}
  .radar-dialog .dialog-head h2{font-size:15px}.radar-dialog .dialog-head button{flex-shrink:0}
 }
+
+/* V3.0.13: ranking de pedras temporais */
+.temporal-panel .panelhead select{background:#0b1119;color:#f1c838;border:1px solid #3d4653;border-radius:7px;padding:9px;max-width:150px}
+.temporal-ranking{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:13px}
+.temporal-row{display:flex;gap:11px;align-items:center;padding:10px;background:#0b1119;border:1px solid #2d3641;border-radius:9px;min-width:0}
+.temporal-row>b{color:#9aa9b9;min-width:21px}.temporal-stone{display:grid;place-items:center;flex:0 0 35px;width:35px;height:35px;border-radius:50%;background:#f1c52d;color:#171717;font-weight:800}
+.temporal-info{flex:1;min-width:0;color:#f4f5f7;font-size:12px}.temporal-info small{color:#91a2b4}.temporal-track{height:6px;border-radius:4px;background:#28323d;margin-top:6px;overflow:hidden}.temporal-track span{display:block;background:#e9c234;height:100%}
+.temporal-tip{margin-top:12px;border:1px solid #5b4d24;border-radius:8px;background:#242018;padding:12px;color:#f0d783;font-size:12px}
+@media(max-width:650px){.temporal-ranking{grid-template-columns:1fr}.temporal-panel .panelhead{align-items:start}.temporal-panel .panelhead select{font-size:10px;max-width:110px}.temporal-info{font-size:11px}}

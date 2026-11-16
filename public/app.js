@@ -25,7 +25,8 @@ function status(msg,ok=false){$('#status').textContent='● '+msg;$('#status').c
 function windowDates(){let now=new Date(),h=$('#period').value;if(h==='custom'){
  const a=new Date($('#start').value),b=new Date($('#end').value);if(!Number.isFinite(+a)||!Number.isFinite(+b)||b<=a)throw Error('Selecione um período válido');if(b-a>31*86400000)throw Error('Máximo de 31 dias por consulta');return [a,b]}
  // Janela estável de 5 minutos: consultas idênticas podem aproveitar o cache compartilhado.
- const anchor=new Date(Math.floor(now.getTime()/300000)*300000);return [new Date(anchor-Number(h)*3600000),anchor]}
+ const hours=Number(h),bucket=hours>=24?1800000:hours>=6?900000:300000;
+ const anchor=new Date(Math.floor(now.getTime()/bucket)*bucket);return [new Date(anchor-hours*3600000),anchor]}
 async function loadHistory(start,end){let all=[];for(let page=0;page<110;page++){
  const j=await get(`/api/history?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}&page=${page}`);
  all.push(...(j.data||[]));if(!j.has_more)break;if(page===109)throw Error('Período excedeu limite de paginação; reduza o intervalo');
@@ -207,3 +208,26 @@ $('#whiteHistoryOpen').addEventListener('click',()=>{whitePage=0;$('#whiteHistor
 $('#whitePrev').addEventListener('click',()=>{if(whitePage>0){whitePage--;loadWhiteHistory()}});
 $('#whiteNext').addEventListener('click',()=>{if(whiteMore){whitePage++;loadWhiteHistory()}});
 loadWhiteSignal();setInterval(loadWhiteSignal,60000);
+
+
+// V3.0.13 — ranking temporal independente do filtro principal.
+let temporalData=null;
+function showTemporal(){
+ const el=$('#temporalRanking'),summary=$('#temporalSummary'),tip=$('#temporalTip');
+ if(!el||!temporalData)return;
+ const key=$('#temporalPeriod').value,all=temporalData.periods?.[key]||[];
+ const eligible=all.filter(x=>x.total>=8&&x.rate!==null);
+ const ranked=eligible.slice(0,7);
+ summary.textContent=`${key==='7d'?'7 dias':key==='24h'?'24 horas':key==='3h'?'3 horas':'2 horas'} • ${temporalData.sample_rounds||0} rodadas examinadas${temporalData.partial?' • histórico parcial':''} • janela +10 min (±1)`;
+ el.innerHTML=ranked.length?ranked.map((x,i)=>`<div class="temporal-row"><b>${i+1}º</b><span class="temporal-stone">${x.number}</span><div class="temporal-info"><div>${x.hits}/${x.total} ocorrências • ${pct(x.hits,x.total)} <small>(${x.exact} no minuto exato)</small></div><div class="temporal-track"><span style="width:${100*x.rate}%"></span></div></div></div>`).join(''):'<div class="signal-empty">Amostra insuficiente: nenhuma pedra teve 8 ocorrências maduras neste período.</div>';
+ if(ranked.length){
+  const top=ranked[0];
+  tip.textContent=`DICA DO RADAR • Pedra ${top.number}: ${top.hits} acertos em ${top.total} ocorrências (${pct(top.hits,top.total)}) no período. Observe se a frequência se mantém; não é previsão.`;
+ }else tip.textContent='DICA DO RADAR • Aguarde mais ocorrências antes de interpretar o ranking.';
+}
+async function loadTemporal(){
+ try{const data=await get('/api/temporal-stones');if(data.error)throw Error(data.error);temporalData=data;showTemporal()}
+ catch(e){const el=$('#temporalSummary');if(el)el.textContent='Análise temporal indisponível. Confirme a publicação do Worker V3.0.13.';console.warn(e)}
+}
+$('#temporalPeriod').addEventListener('change',showTemporal);
+loadTemporal();setInterval(loadTemporal,1800000);
