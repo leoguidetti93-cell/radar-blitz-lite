@@ -176,39 +176,17 @@ $('#signalPrev').addEventListener('click',()=>{if(signalPage>0){signalPage--;loa
 $('#signalNext').addEventListener('click',()=>{if(signalHasMore){signalPage++;loadSignalHistory()}});
 loadSignal();setInterval(loadSignal,30000);
 
-// V3.0.9 — painel e histórico global de sugestões de branco
+// V3.0.15 — painel experimental independente
 let whitePage=0,whiteMore=false;
-function renderWhiteSignal(x,last){
- const el=$('#whiteSignalLive');if(!el)return;
- if(x){
-  const t=Date.parse(x.target_instant),p=parts(t);
-  if(!Number.isFinite(t)){el.innerHTML='<div class="signal-empty">Horário inválido na sugestão. Verifique o Worker.</div>';return}
-  el.innerHTML=`<div class="white-window"><small>PRÓXIMA JANELA SUGERIDA • BRASÍLIA</small><strong>⚪ ${p.hour}:${p.minute}</strong><div class="window-range">${stamp(Date.parse(x.window_start)).slice(-8,-3)} — ${stamp(Date.parse(x.window_end)).slice(-8,-3)}</div><div class="window-note">Margem ±1 minuto • ${x.status==='pending'?'programada antecipadamente':'em avaliação'} • D1 global</div></div>`;
-  return;
- }
- if(last&&Number.isFinite(Date.parse(last.target_instant))){
-  const p=parts(Date.parse(last.target_instant));
-  const outcome=last.status==='done'?(last.outcome==='WIN'?'⚪✅ WIN':last.outcome==='LOSS'?'❌ LOSS':'⚠ SEM DADOS'):'⏳ AGUARDANDO';
-  el.innerHTML=`<div class="white-window"><small>NENHUMA JANELA ATIVA NO MOMENTO</small><div class="window-note">Última janela registrada • Brasília</div><strong>${p.hour}:${p.minute}</strong><div class="window-note">${outcome} • aguardando próxima janela qualificada</div></div>`;
-  return;
- }
- el.innerHTML='<div class="signal-empty">Nenhuma janela qualificada neste momento. Aguardando cruzamento dos indicadores.</div>';
-}
-async function loadWhiteSignal(){
- const el=$('#whiteSignalLive');if(!el)return;
- try{
-  const r=await get('/api/white-signal');
-  if(r.error)throw Error(r.error);
-  renderWhiteSignal(r.signal||null,r.last||null);
- }catch(e){el.innerHTML='<div class="signal-empty">Não foi possível consultar o motor de brancos. Tentando novamente…</div>';console.warn('white-signal',e)}
-}
-async function loadWhiteStats(){const el=$('#whiteHistoryStats');if(!el)return;try{const r=await get('/api/white-signal-stats'),s=r.stats||{};const card=(title,wins,total,losses)=>`<div class="signal-stat-tile"><small>${title}</small><strong>${total?((wins||0)*100/total).toFixed(2).replace('.',',')+'%':'—'}</strong><span>${wins||0} WINS / ${total||0} sinais • ${losses||0} LOSS</span></div>`;el.innerHTML=card('ASSERTIVIDADE HISTÓRICA',s.wins,s.total,s.losses)+card('ASSERTIVIDADE HOJE',s.today_wins,s.today_total,s.today_losses)}catch{el.textContent='Estatísticas indisponíveis.'}}
-async function loadWhiteHistory(){try{const r=await get('/api/white-signals?page='+whitePage);whiteMore=!!r.has_more;$('#whitePage').textContent=String(whitePage+1);$('#whitePrev').disabled=whitePage===0;$('#whiteNext').disabled=!whiteMore;$('#whiteHistoryRows').innerHTML=(r.data||[]).length?`<table><thead><tr><th>HORÁRIO</th><th>MARGEM</th><th>RESULTADO</th></tr></thead><tbody>${r.data.map(x=>`<tr><td>${stamp(Date.parse(x.target_instant))}</td><td>±1 min</td><td class="signal-result">${x.outcome==='WIN'?'⚪✅ WIN':x.outcome==='LOSS'?'❌ LOSS':x.outcome==='SEM DADOS'?'⚠ SEM DADOS':'⏳ AGUARDANDO'}</td></tr>`).join('')}</tbody></table>`:'<div class="signal-empty">Nenhuma sugestão registrada.</div>'}catch{$('#whiteHistoryRows').textContent='Não foi possível carregar o histórico de branco.'}}
+const dryLabel=x=>x.color==='yellow'?'AMARELO':'PRETO';
+const dryOutcome=x=>x.outcome==='WHITE'?'⚪ WIN':x.outcome==='WIN'?'WIN':x.outcome==='LOSS'?'LOSS':x.outcome==='SEM DADOS'?'SEM DADOS':'AGUARDANDO';
+async function loadWhiteSignal(){try{const r=await get('/api/dry-trials?page=0');if(r.error)throw Error(r.error);const rows=(r.data||[]).filter(x=>x.status==='done').slice(0,3);$('#whiteSignalLive').innerHTML=rows.length?rows.map(x=>`<div class="white-window"><small>ENSAIO CONCLUÍDO • ${stamp(Date.parse(x.target_instant))}</small><strong>${dryLabel(x)} • ${dryOutcome(x)}</strong></div>`).join(''):'<div class="signal-empty">Aguardando primeiros ensaios concluídos.</div>'}catch{$('#whiteSignalLive').textContent='Experimento indisponível. Verifique a migração D1.'}}
+async function loadWhiteStats(){try{const r=await get('/api/dry-stats');if(r.error)throw Error(r.error);const s=r.stats;const tile=(title,w,t,l)=>`<div class="signal-stat-tile"><small>${title}</small><strong>${t?(100*w/t).toFixed(2)+'%':'—'}</strong><span>${w} WIN / ${l} LOSS</span></div>`;$('#whiteHistoryStats').innerHTML=tile('HISTÓRICO',s.wins,s.total,s.losses)+tile('HOJE',s.today_wins,s.today_total,s.today_losses);$('#whiteHistorySummary').textContent=`Brancos: ${s.white} • perdas consecutivas: ${s.streak} • maior sequência: ${s.max} • referência aleatória: 53,33%`}catch{$('#whiteHistoryStats').textContent='Estatísticas indisponíveis.'}}
+async function loadWhiteHistory(){try{const r=await get('/api/dry-trials?page='+whitePage);if(r.error)throw Error(r.error);whiteMore=!!r.has_more;$('#whitePage').textContent=whitePage+1;$('#whitePrev').disabled=!whitePage;$('#whiteNext').disabled=!whiteMore;$('#whiteHistoryRows').innerHTML='<table><thead><tr><th>HORÁRIO</th><th>COR TESTADA</th><th>RESULTADO</th></tr></thead><tbody>'+r.data.filter(x=>x.status==='done').map(x=>`<tr><td>${stamp(Date.parse(x.target_instant))}</td><td>${dryLabel(x)}</td><td>${dryOutcome(x)}</td></tr>`).join('')+'</tbody></table>'}catch{$('#whiteHistoryRows').textContent='Histórico indisponível.'}}
 $('#whiteHistoryOpen').addEventListener('click',()=>{whitePage=0;$('#whiteHistoryDialog').showModal();loadWhiteStats();loadWhiteHistory()});
 $('#whitePrev').addEventListener('click',()=>{if(whitePage>0){whitePage--;loadWhiteHistory()}});
 $('#whiteNext').addEventListener('click',()=>{if(whiteMore){whitePage++;loadWhiteHistory()}});
 loadWhiteSignal();setInterval(loadWhiteSignal,60000);
-
 
 // V3.0.13 — ranking temporal independente do filtro principal.
 let temporalData=null;
