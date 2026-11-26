@@ -72,7 +72,7 @@ function showPatterns(){
  summary.textContent=`${recognizedPatterns.length} padrões qualificados • últimas 3 horas vs. ${patternCoverage?.scanned?.toLocaleString('pt-BR')||'—'} rodadas históricas${patternCoverage?.truncated?' (histórico parcial; limite de segurança)':''}`;
 }
 async function loadPatterns(){try{const r=await get('/api/patterns');recognizedPatterns=(r.patterns||[]).slice(0,5);patternCoverage=r.coverage;showPatterns();catalog(catalogRows)}catch(e){if(!recognizedPatterns.length)$('#patternSummary').textContent='Padrões indisponíveis. Verifique se o Worker V3.0.7 foi publicado.'}}
-function catalog(rows){updateTool();const marks=toolMarks(rows);const groups=new Map();for(const r of rows){const k=blockKey(r.ts);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}let html='';for(const [key,list] of groups){const slots=Array.from({length:10},()=>[]);for(const r of list){const minute=Number(parts(r.ts).minute)%10;slots[minute].push(r)}slots.forEach(x=>x.sort((a,b)=>a.ts-b.ts));const label=key.slice(11);html+=`<div class="catalogrow"><div class="rowtime">${safe(label)}</div><div class="minutes">${slots.map((arr,i)=>`<div class="minute"><span class="minute-label">${String((+label.slice(3)+i)%60).padStart(2,'0')}</span><div class="pair">${[0,1].map(j=>arr[j]?catalogStone(arr[j],marks.get(String(arr[j].id))||''):'<span class="stone empty">·</span>').join('')}</div></div>`).join('')}</div></div>`}$('#catalog').innerHTML=html||'<div class="emptymsg">Ainda não existem rodadas armazenadas.</div>';$('#catalogFoot').textContent=`${rows.length} rodadas disponíveis • ${groups.size} blocos de 10 minutos • até ${catalogLimit} solicitadas`}
+function catalog(rows){updateTool();g1Update();const marks=toolMarks(rows),g1m=g1Marks();const groups=new Map();for(const r of rows){const k=blockKey(r.ts);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}let html='';for(const [key,list] of groups){const slots=Array.from({length:10},()=>[]);for(const r of list){const minute=Number(parts(r.ts).minute)%10;slots[minute].push(r)}slots.forEach(x=>x.sort((a,b)=>a.ts-b.ts));const label=key.slice(11);html+=`<div class="catalogrow"><div class="rowtime">${safe(label)}</div><div class="minutes">${slots.map((arr,i)=>`<div class="minute"><span class="minute-label">${String((+label.slice(3)+i)%60).padStart(2,'0')}</span><div class="pair">${[0,1].map(j=>arr[j]?catalogStone(arr[j],marks.get(String(arr[j].id))||'',g1m.get(String(arr[j].id))||''):'<span class="stone empty">·</span>').join('')}</div></div>`).join('')}</div></div>`}$('#catalog').innerHTML=html||'<div class="emptymsg">Ainda não existem rodadas armazenadas.</div>';$('#catalogFoot').textContent=`${rows.length} rodadas disponíveis • ${groups.size} blocos de 10 minutos • até ${catalogLimit} solicitadas`}
 
 function stat(label,value,detail=''){return `<div class="stat"><small>${label}</small><strong>${value}</strong><span>${detail}</span></div>`}
 function gapsOf(rows){const a=[...rows].reverse(),idx=a.map((r,i)=>r.n===0?i:-1).filter(i=>i>=0);return idx.slice(1).map((x,i)=>x-idx[i]-1)}
@@ -120,19 +120,105 @@ $('#period').addEventListener('change',()=>{const custom=$('#period').value==='c
 $('#apply').addEventListener('click',()=>refresh(true));$('#flowScale').addEventListener('change',()=>flow(analysisRows));
 $$('[data-limit]').forEach(b=>b.addEventListener('click',()=>{catalogLimit=Number(b.dataset.limit);$$('[data-limit]').forEach(x=>x.classList.toggle('selected',x===b));refresh(false)}));
 $('#csv').addEventListener('click',()=>{const text='id;data_hora_utc;numero;cor\n'+catalogRows.map(r=>`${r.id};${new Date(r.ts).toISOString()};${r.n};${names[color(r.n)]}`).join('\n');const url=URL.createObjectURL(new Blob(['\ufeff'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='radar-blitz-rodadas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),500)});
-function catalogStone(r,mark){return stone(r,mark).replace('<span class="stone ',`<span data-round="${safe(r.id)}" role="button" tabindex="0" class="stone `);}
+function catalogStone(r,mark,g1mark){return stone(r,mark).replace('<span class="stone ',`<span data-round="${safe(r.id)}" role="button" tabindex="0" class="stone ${g1mark||''} `);}
 function scanPattern(rows,pattern){const a=[...rows].sort((x,y)=>x.ts-y.ts);const marks=new Map();let found=0,complete=0,wins=0,whites=0;const positions=Array(6).fill(0);if(!pattern.length)return {marks,found,complete,wins,whites,positions};for(let i=0;i+pattern.length<=a.length;i++){if(!pattern.every((n,j)=>a[i+j].n===n))continue;found++;for(let j=0;j<pattern.length;j++)marks.set(String(a[i+j].id),'selected');const next=a.slice(i+pattern.length,i+pattern.length+6);for(const r of next)if(r.n===0&&!marks.has(String(r.id)))marks.set(String(r.id),'hit');if(next.length!==6)continue;complete++;const first=next.findIndex(r=>r.n===0);if(first>=0){wins++;positions[first]++;}whites+=next.filter(r=>r.n===0).length;}return {marks,found,complete,wins,whites,positions};}
 function toolMarks(rows){if(toolMode==='card')return patternMarks(rows);if(toolMode==='detect')return chosenPattern.length===Number($('#detectSize').value)?scanPattern(rows,chosenPattern).marks:new Map();const m=new Map();for(const r of rows){if((toolMode==='sum'||toolMode==='select'&&selectionMode==='manual')&&picked.has(String(r.id))||toolMode==='select'&&matchValue!==null&&(selectionMode==='number'&&r.n===matchValue||selectionMode==='color'&&color(r.n)===matchValue))m.set(String(r.id),'selected');}return m;}
 function updateTool(){const active=toolMode;$('#toolClear').classList.toggle('hidden',!active);for(const [id,mode] of [['toolSelect','select'],['toolSum','sum'],['toolDetect','detect']])$('#'+id).classList.toggle('selected',active===mode);for(const [id,mode] of [['selectOptions','select'],['sumOptions','sum'],['detectOptions','detect']])$('#'+id).classList.toggle('hidden',active!==mode);$('#toolStatus').textContent=active==='card'?'Sequência selecionada: '+cardPattern:active==='select'?'Clique nas pedras para destacar.':active==='sum'?'Clique nas pedras para somar.':active==='detect'?'Escolha os números na ordem cronológica.':'';if(active==='sum'){const nums=[...picked.values()].map(r=>r.n),sum=nums.reduce((a,b)=>a+b,0),base=$('#sumBase').value;let result='—';if(nums.length&&/^\d{2}:\d{2}$/.test(base)){const [h,m]=base.split(':').map(Number),t=h*60+m+sum;result=String(Math.floor(t%1440/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')+(t>=1440?' (+'+Math.floor(t/1440)+'d)':'');}$('#sumResult').innerHTML=stat('SOMA',sum,nums.join(' + '))+stat('PROJEÇÃO',result,'Horário base + soma em minutos');}if(active==='detect'){const size=Number($('#detectSize').value);$('#detectSequence').textContent='Sequência: '+Array.from({length:size},(_,i)=>chosenPattern[i]??'—').join(' → ');const r=scanPattern(analysisRows.length?analysisRows:catalogRows,chosenPattern.length===size?chosenPattern:[]);$('#detectStats').innerHTML=stat('OCORRÊNCIAS',r.found,'Janelas completas: '+r.complete)+stat('COM BRANCO',r.wins,'Até 6 rodadas')+stat('SEM BRANCO',r.complete-r.wins,'Pendentes: '+(r.found-r.complete))+stat('FREQUÊNCIA',pct(r.wins,r.complete),'Brancos nas janelas: '+r.whites)+stat('PRIMEIRO BRANCO POR CASA',r.positions.join(' / '),'1ª a 6ª casa')+stat('AMOSTRA',analysisRows.length||catalogRows.length,analysisRows.length?'Período de análise':'Catalogador');}}
 function activateTool(mode){toolMode=mode;picked.clear();matchValue=null;chosenPattern=[];cardPattern=null;$('#sumBase').value='';showPatterns();catalog(catalogRows);}
 function setupCatalogTools(){for(const [id,mode] of [['toolSelect','select'],['toolSum','sum'],['toolDetect','detect'],['toolClear','']])$('#'+id).addEventListener('click',()=>activateTool(mode));$('#selectMode').addEventListener('change',e=>{selectionMode=e.target.value;picked.clear();matchValue=null;catalog(catalogRows)});$('#sumBase').addEventListener('input',updateTool);$('#detectSize').addEventListener('change',()=>{chosenPattern=[];catalog(catalogRows)});$('#detectPalette').innerHTML=Array.from({length:15},(_,n)=>`<button type="button" class="stone ${color(n)}" data-num="${n}">${n}</button>`).join('');function add(n){if(chosenPattern.length>=Number($('#detectSize').value))chosenPattern=[];chosenPattern.push(n);catalog(catalogRows)}$('#detectPalette').addEventListener('click',e=>{const b=e.target.closest('[data-num]');if(b)add(Number(b.dataset.num))});$('#detectUndo').addEventListener('click',()=>{chosenPattern.pop();catalog(catalogRows)});function clickStone(e){const b=e.target.closest('[data-round]');if(!b)return;const r=catalogRows.find(r=>String(r.id)===b.dataset.round);if(!r)return;if(toolMode==='detect'){add(r.n);return}if(toolMode==='sum'||toolMode==='select'&&selectionMode==='manual'){const id=String(r.id);if(picked.has(id))picked.delete(id);else{if(toolMode==='sum'&&!$('#sumBase').value){const p=parts(r.ts);$('#sumBase').value=p.hour+':'+p.minute;}picked.set(id,r)}}else if(toolMode==='select')matchValue=selectionMode==='number'?r.n:color(r.n);else return;catalog(catalogRows)}$('#catalog').addEventListener('click',clickStone);$('#catalog').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();clickStone(e)}});$('#patternList').addEventListener('click',e=>{const b=e.target.closest('[data-pattern]');if(!b)return;const key=b.dataset.pattern;activateTool('card');cardPattern=key;showPatterns();catalog(catalogRows);$('#catalogTools').scrollIntoView({behavior:'smooth',block:'start'})});}
 
+// V3.0.20 — lista local G1; não modifica sugestões globais G2.
+const G1_KEY='rb320_g1_list',G1_MIN=60000,G1_WINDOW=4*G1_MIN;
+let g1State=null,g1Recovering=false,g1LastRecovery=0;
+const g1Emoji=c=>c==='black'?'⚫':c==='white'?'⚪️':'🟡';
+const g1Time=t=>{const p=parts(t);return p.hour+':'+p.minute};
+const g1Win=(n,c)=>n===0||color(n)===c;
+function g1Rows(...lists){return [...new Map(lists.flat().map(r=>[String(r.id),r])).values()].sort((a,b)=>a.ts-b.ts||String(a.id).localeCompare(String(b.id)));}
+function g1Rank(rows){
+ const a=g1Rows(rows).slice(-420),key=r=>r.n===0?'w':r.n<=7?'y':'b';
+ if(a.length<160)return [];
+ const pair=key(a.at(-2))+key(a.at(-1)),split=Math.floor(a.length*.7);
+ // Mesmo par de cores, split cronológico 70/30 e amostras mínimas do G2.
+ // G1: duas rodadas; limiares ajustados pela diferença da referência teórica.
+ const out=[];
+ for(const c of ['black','yellow']){
+  const train=[],test=[];
+  for(let i=2;i+1<a.length;i++){
+   if(key(a[i-2])+key(a[i-1])!==pair||a[i+1].ts-a[i].ts>180000)continue;
+   if(a[i].ts-a[i-1].ts>180000||a[i-1].ts-a[i-2].ts>180000)continue;
+   if(i<split&&i+1>=split)continue;
+   (i<split?train:test).push(g1Win(a[i].n,c)||g1Win(a[i+1].n,c));
+  }
+  const rate=x=>x.length?x.filter(Boolean).length/x.length:0;
+  if(train.length>=20&&test.length>=10&&rate(train)>=.77&&rate(test)>=.79)out.push({c,train:train.length,test:test.length,trainRate:rate(train),score:rate(test),pair});
+ }
+ return out.sort((x,y)=>y.score-x.score||y.test-x.test||y.trainRate-x.trainRate||x.c.localeCompare(y.c));
+}
+function g1Build(rows,minutes,quantity,now){
+ const a=g1Rows(rows),latest=a.at(-1);if(!latest||now-latest.ts>180000||latest.ts>now+G1_MIN)throw Error('Coleta atrasada. Aguarde rodadas atualizadas.');
+ const rank=g1Rank(a),best=rank[0];if(!best)throw Error('Nenhuma cor qualificada no recorte atual. Tente novamente após novas rodadas.');
+ const first=Math.ceil((now+5*G1_MIN)/G1_MIN)*G1_MIN,last=Math.floor((now+minutes*G1_MIN)/G1_MIN)*G1_MIN;
+ const count=Math.min(quantity,Math.floor((last-first)/(5*G1_MIN))+1);if(count<1)throw Error('Período insuficiente.');
+ const span=Math.floor((last-first)/G1_MIN),step=count===1?0:Math.floor(span/(count-1));
+ return {created:now,active:false,model:best,items:Array.from({length:count},(_,i)=>({target:first+i*step*G1_MIN,c:best.c,status:'pending'}))};
+}
+function g1Resolve(item,rows,now){
+ if(item.status!=='pending'||now<item.target)return item;
+ const before=rows.filter(r=>r.ts<item.target).at(-1),after=rows.filter(r=>r.ts>=item.target&&r.ts<item.target+G1_WINDOW).slice(0,2);
+ // Não usar uma rodada tardia como SG quando o início da janela não foi observado.
+ const valid=before&&item.target-before.ts<=180000&&after[0]&&after[0].ts-item.target<=90000&&after[0].ts-before.ts<=180000;
+ if(valid){
+  if(g1Win(after[0].n,item.c))return {...item,status:'SG',n:after[0].n,roundId:String(after[0].id)};
+  if(after[1]&&after[1].ts-after[0].ts<=90000){const r=after[1];return {...item,status:g1Win(r.n,item.c)?'G1':'LOSS',n:r.n,roundId:String(r.id)};}
+ }
+ // Sem dados ainda? Aguarda recuperação, em vez de inventar um LOSS.
+ return item;
+}
+function g1Save(){try{if(g1State)localStorage.setItem(G1_KEY,JSON.stringify(g1State));else localStorage.removeItem(G1_KEY)}catch(e){$('#g1Message').textContent='Armazenamento local indisponível; a lista pode não sobreviver ao recarregamento.';}}
+function g1Restore(){try{const s=JSON.parse(localStorage.getItem(G1_KEY)||'null');if(s&&Array.isArray(s.items)&&s.items.length<=20&&s.items.length&&s.items.every(x=>Number.isFinite(x.target)&&['yellow','black'].includes(x.c)&&['pending','SG','G1','LOSS','SEM DADOS'].includes(x.status)))g1State=s}catch{}}
+function g1Text(){return 'LISTA BLITZ RADAR G1\n\n'+g1State.items.map(x=>g1Time(x.target)+g1Emoji(x.c)+'⚪️').join('\n');}
+function g1Render(){
+ const s=g1State;$('#g1List').classList.toggle('hidden',!s);$('#g1Copy').disabled=!s;$('#g1Follow').disabled=!s||!!s.active;$('#g1Stop').classList.toggle('hidden',!s?.active);$('#g1Generate').disabled=!!s?.active;
+ if(!s)return;
+ $('#g1Status').textContent=s.active?'ACOMPANHANDO':'LISTA GERADA';
+ const sg=s.items.filter(x=>x.status==='SG').length,g1=s.items.filter(x=>x.status==='G1').length,loss=s.items.filter(x=>x.status==='LOSS').length,missing=s.items.filter(x=>x.status==='SEM DADOS').length;
+ $('#g1Stats').innerHTML=stat('SG',sg)+stat('G1',g1)+stat('LOSS',loss)+stat('ASSERTIVIDADE',pct(sg+g1,sg+g1+loss));
+ $('#g1Rows').innerHTML=s.items.map(x=>{const win=x.status==='SG'||x.status==='G1',label=win?'WIN '+g1Emoji(color(x.n))+'✅ '+x.status:x.status==='LOSS'?'LOSS ❌':x.status==='SEM DADOS'?'SEM DADOS':'AGUARDANDO';return `<div class="g1-row"><b>${g1Time(x.target)}${g1Emoji(x.c)}⚪️</b><span class="${win?'g1-ok':x.status==='LOSS'?'g1-bad':''}">${label}</span></div>`}).join('');
+ const m=s.model;$('#g1Meta').textContent=`${s.items.length} horários • Brasília • ${s.items.length-sg-g1-loss-missing} pendentes • ${missing} sem dados${m?' • validação G1: '+pct(Math.round(m.score*m.test),m.test)+' ('+m.test+' amostras)':''}. Mesma cor para o contexto observado na geração; não conhece os pares futuros.`;
+}
+function g1Update(){
+ if(!g1State?.active)return;
+ const rows=g1Rows(analysisRows,catalogRows),now=Date.now();let changed=false;
+ g1State.items=g1State.items.map(x=>{const y=g1Resolve(x,rows,now);if(y!==x)changed=true;return y});
+ if(changed)g1Save();g1Render();
+ // Após ausência prolongada, consulta uma janela histórica fechada apenas quando necessário.
+ if(!g1Recovering&&now-g1LastRecovery>60000&&g1State.items.some(x=>x.status==='pending'&&now>x.target+10*G1_MIN))void g1Recover();
+}
+async function g1Recover(){
+ const state=g1State;if(!state?.active)return;
+ const now=Date.now(),late=state.items.filter(x=>x.status==='pending'&&now>x.target+10*G1_MIN);if(!late.length)return;
+ g1Recovering=true;g1LastRecovery=now;
+ try{const rows=g1Rows(await loadHistory(new Date(late[0].target-3*G1_MIN),new Date(late.at(-1).target+G1_WINDOW)),analysisRows,catalogRows);
+  if(g1State!==state||!state.active)return;
+  const targets=new Set(late.map(x=>x.target));state.items=state.items.map(x=>{if(!targets.has(x.target)||x.status!=='pending')return x;const y=g1Resolve(x,rows,now);return y===x?{...x,status:'SEM DADOS'}:y});g1Save();g1Render();catalog(catalogRows);
+ }catch(e){$('#g1Message').textContent='Histórico indisponível; resultados pendentes serão reconsultados.'}finally{g1Recovering=false}
+}
+function g1Marks(){const m=new Map();if(g1State?.active)for(const x of g1State.items)if(x.roundId)m.set(x.roundId,x.status==='LOSS'?'g1-loss':x.status==='SG'||x.status==='G1'?'g1-win':'');return m;}
+function setupG1(){
+ g1Restore();g1Render();if(g1State?.active)$('#g1Options').classList.remove('hidden');
+ $('#toolG1').addEventListener('click',()=>{$('#g1Options').classList.toggle('hidden');$('#toolG1').classList.toggle('selected',!$('#g1Options').classList.contains('hidden'))});
+ $('#g1Generate').addEventListener('click',async()=>{if(g1State?.active)return;const b=$('#g1Generate');b.disabled=true;$('#g1Message').textContent='Calculando…';try{let rows=g1Rows(analysisRows,catalogRows);if(rows.length<420||Date.now()-(rows.at(-1)?.ts||0)>180000)rows=g1Rows(rows,parse((await get('/api/rounds?limit=420')).data));g1State=g1Build(rows,Number($('#g1Period').value),Number($('#g1Quantity').value),Date.now());g1Save();$('#g1Message').textContent='Lista criada. Clique em ACOMPANHAR NO SITE para iniciar a apuração.';g1Render();}catch(e){$('#g1Message').textContent=e.message;}finally{b.disabled=!!g1State?.active}});
+ $('#g1Copy').addEventListener('click',async()=>{if(!g1State)return;try{await navigator.clipboard.writeText(g1Text());$('#g1Message').textContent='Lista copiada.'}catch{const t=document.createElement('textarea');t.value=g1Text();$('#g1Options').append(t);t.select();const ok=document.execCommand('copy');t.remove();$('#g1Message').textContent=ok?'Lista copiada.':'Não foi possível copiar.'}});
+ $('#g1Follow').addEventListener('click',()=>{if(!g1State)return;g1State.active=true;g1Save();g1Render();catalog(catalogRows);$('#g1Message').textContent='Acompanhamento ativo neste navegador.'});
+ $('#g1Stop').addEventListener('click',()=>{if(!g1State)return;g1State.active=false;g1Save();g1Render();catalog(catalogRows);$('#g1Message').textContent='Acompanhamento encerrado. Lista mantida para consulta.'});
+}
+
 // A coleta NÃO depende desta atualização do navegador: o Worker agendado a executa.
-setupCatalogTools();setupCollapse();restoreSnapshot();refresh(true);loadPatterns();setInterval(loadPatterns,300000);setInterval(()=>refresh(false),30000);setInterval(()=>refresh(true),300000);setInterval(setDataAge,60000);
+setupCatalogTools();setupG1();setupCollapse();restoreSnapshot();refresh(true);loadPatterns();setInterval(loadPatterns,300000);setInterval(()=>refresh(false),30000);setInterval(()=>refresh(true),300000);setInterval(setDataAge,60000);
 
 // V3.0.5 — leitura apenas de sinais oficiais gerados no Worker e persistidos no D1.
 const guideSections=[
-['01 • Ferramentas do catalogador','Selecione pedras, some valores a um horário editável ou analise sequências de 2 a 4 números. Use LIMPAR para voltar ao normal.'],
+['01 • Ferramentas do catalogador','Selecione pedras, some valores a um horário editável ou analise sequências de 2 a 4 números. Use LIMPAR para voltar ao normal. A lista G1 é independente e local; ENCERRAR ACOMPANHAMENTO remove suas marcações.'],
 ['03 • Frequência das cores','Mostra a proporção de branco, amarelo e preto no período escolhido. Compare com as proporções teóricas (6,67%, 46,67% e 46,67%).'],
 ['04 • Fluxo de brancos','Quantidade de brancos em blocos de 10, 15 ou 60 minutos; lacunas de coleta não devem ser tratadas como zero.'],
 ['05 • Intervalos entre brancos','Distribuição das quantidades de rodadas entre resultados brancos. Não indica quando o próximo branco deverá ocorrer.'],
