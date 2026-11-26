@@ -134,33 +134,55 @@ const g1Emoji=c=>c==='black'?'⚫':c==='white'?'⚪️':'🟡';
 const g1Time=t=>{const p=parts(t);return p.hour+':'+p.minute};
 const g1Win=(n,c)=>n===0||color(n)===c;
 function g1Rows(...lists){return [...new Map(lists.flat().map(r=>[String(r.id),r])).values()].sort((a,b)=>a.ts-b.ts||String(a.id).localeCompare(String(b.id)));}
-function g1Rank(rows){
- const a=g1Rows(rows).slice(-420),key=r=>r.n===0?'w':r.n<=7?'y':'b';
- if(a.length<160)return [];
- const pair=key(a.at(-2))+key(a.at(-1)),split=Math.floor(a.length*.7);
- // Mesmo par de cores, split cronológico 70/30 e amostras mínimas do G2.
- // G1: duas rodadas; limiares ajustados pela diferença da referência teórica.
- const out=[];
- for(const c of ['black','yellow']){
-  const train=[],test=[];
-  for(let i=2;i+1<a.length;i++){
-   if(key(a[i-2])+key(a[i-1])!==pair||a[i+1].ts-a[i].ts>180000)continue;
-   if(a[i].ts-a[i-1].ts>180000||a[i-1].ts-a[i-2].ts>180000)continue;
-   if(i<split&&i+1>=split)continue;
-   (i<split?train:test).push(g1Win(a[i].n,c)||g1Win(a[i+1].n,c));
-  }
-  const rate=x=>x.length?x.filter(Boolean).length/x.length:0;
-  if(train.length>=20&&test.length>=10&&rate(train)>=.77&&rate(test)>=.79)out.push({c,train:train.length,test:test.length,trainRate:rate(train),score:rate(test),pair});
+// V3.0.22 — perfil temporal histórico. O par futuro do G2 não é observável.
+const G1_DAY=86400000,G1_MIN_GAP=5*G1_MIN,G1_BASELINE=1-(7/15)**2;
+let g1ProfileCache=null;
+function g1HistoryEnd(now){return Math.floor((now-3*3600000)/G1_DAY)*G1_DAY+3*3600000;}
+function g1Lower(h,n){if(!n)return 0;const p=h/n,z=1.96,z2=z*z;return (p+z2/(2*n)-z*Math.sqrt((p*(1-p)+z2/(4*n))/n))/(1+z2/n);}
+function g1Rank(rows,end){
+ const start=end-3*G1_DAY,split=end-G1_DAY;
+ const buckets=new Map();
+ for(const r of g1Rows(rows)){
+  if(r.ts<start||r.ts>=end)continue;
+  const t=Math.floor(r.ts/G1_MIN)*G1_MIN;
+  if(!buckets.has(t))buckets.set(t,[]);buckets.get(t).push(r);
  }
- return out.sort((x,y)=>y.score-x.score||y.test-x.test||y.trainRate-x.trainRate||x.c.localeCompare(y.c));
+ const profile=Array.from({length:60},()=>({black:{train:0,test:0,trainHits:0,testHits:0},yellow:{train:0,test:0,trainHits:0,testHits:0}}));
+ for(const [t,pair] of buckets){
+  // Apenas minutos completos, com duas rodadas distintas e continuidade anterior.
+  const prior=buckets.get(t-G1_MIN);
+  if(pair.length!==2||!prior||prior.length!==2||pair[0].ts>=pair[1].ts||pair[0].ts-prior[1].ts>90000||pair[1].ts-pair[0].ts>90000)continue;
+  const slot=profile[new Date(t).getUTCMinutes()],phase=t<split?'train':'test';
+  for(const c of ['black','yellow']){const x=slot[c];x[phase]++;if(pair.some(r=>g1Win(r.n,c)))x[phase+'Hits']++;}
+ }
+ return profile.map(slot=>{
+  // Escolher a cor usando somente treino; teste separado serve de filtro, não de ajuste.
+  const ranked=['black','yellow'].map(c=>{const x=slot[c];return {...x,c,trainRate:x.train?x.trainHits/x.train:0,score:x.test?x.testHits/x.test:0,rank:g1Lower(x.trainHits,x.train)};})
+   .filter(x=>x.train>=30&&x.trainRate>=G1_BASELINE)
+   .sort((a,b)=>b.rank-a.rank||b.trainRate-a.trainRate||a.c.localeCompare(b.c));
+  const best=ranked[0];return best&&best.test>=15&&best.score>=G1_BASELINE?best:null;
+ });
 }
-function g1Build(rows,minutes,quantity,now){
- const a=g1Rows(rows),latest=a.at(-1);if(!latest||now-latest.ts>180000||latest.ts>now+G1_MIN)throw Error('Coleta atrasada. Aguarde rodadas atualizadas.');
- const rank=g1Rank(a),best=rank[0];if(!best)throw Error('Nenhuma cor qualificada no recorte atual. Tente novamente após novas rodadas.');
+async function g1LoadProfile(now){
+ const end=g1HistoryEnd(now);
+ if(g1ProfileCache?.end===end)return g1ProfileCache.profile;
+ // Janelas diárias fechadas e iguais para todos, aproveitando o cache da API.
+ const rows=[];
+ for(let day=3;day>=1;day--)rows.push(...await loadHistory(new Date(end-day*G1_DAY),new Date(end-(day-1)*G1_DAY)));
+ const profile=g1Rank(rows,end);g1ProfileCache={end,profile};return profile;
+}
+function g1Build(profile,rows,minutes,quantity,now){
+ const latest=g1Rows(rows).at(-1);if(!latest||now-latest.ts>180000||latest.ts>now+G1_MIN)throw Error('Coleta atrasada. Aguarde rodadas atualizadas.');
  const first=Math.ceil((now+5*G1_MIN)/G1_MIN)*G1_MIN,last=Math.floor((now+minutes*G1_MIN)/G1_MIN)*G1_MIN;
- const count=Math.min(quantity,Math.floor((last-first)/(5*G1_MIN))+1);if(count<1)throw Error('Período insuficiente.');
- const span=Math.floor((last-first)/G1_MIN),step=count===1?0:Math.floor(span/(count-1));
- return {created:now,active:false,model:best,items:Array.from({length:count},(_,i)=>({target:first+i*step*G1_MIN,c:best.c,status:'pending'}))};
+ const candidates=[];
+ for(let t=first;t<=last;t+=G1_MIN){const x=profile[new Date(t).getUTCMinutes()];if(x)candidates.push({...x,target:t});}
+ // Ordenar pela evidência no treino; não forçar alternância, quantidade ou intervalos fixos.
+ candidates.sort((a,b)=>b.rank-a.rank||b.trainRate-a.trainRate||a.target-b.target);
+ const items=[];
+ for(const x of candidates){if(items.length>=quantity)break;if(items.some(y=>Math.abs(y.target-x.target)<G1_MIN_GAP))continue;items.push({target:x.target,c:x.c,status:'pending',train:x.train,test:x.test,trainRate:x.trainRate,score:x.score});}
+ if(!items.length)throw Error('Nenhum horário passou pelos critérios históricos. Tente outro período ou aguarde novos dados.');
+ items.sort((a,b)=>a.target-b.target);
+ return {created:now,active:false,model:{version:'322-minute-profile',days:3,requested:quantity,period:minutes},items};
 }
 function g1Resolve(item,rows,now){
  if(item.status!=='pending'||now<item.target)return item;
@@ -184,7 +206,7 @@ function g1Render(){
  const sg=s.items.filter(x=>x.status==='SG').length,g1=s.items.filter(x=>x.status==='G1').length,loss=s.items.filter(x=>x.status==='LOSS').length,missing=s.items.filter(x=>x.status==='SEM DADOS').length;
  $('#g1Stats').innerHTML=stat('SG',sg)+stat('G1',g1)+stat('LOSS',loss)+stat('ASSERTIVIDADE',pct(sg+g1,sg+g1+loss));
  $('#g1Rows').innerHTML=s.items.map(x=>{const win=x.status==='SG'||x.status==='G1',label=win?'WIN '+g1Emoji(color(x.n))+'✅ '+x.status:x.status==='LOSS'?'LOSS ❌':x.status==='SEM DADOS'?'SEM DADOS':'AGUARDANDO';return `<div class="g1-row"><b>${g1Time(x.target)}${g1Emoji(x.c)}⚪️</b><span class="${win?'g1-ok':x.status==='LOSS'?'g1-bad':''}">${label}</span></div>`}).join('');
- const m=s.model;$('#g1Meta').textContent=`${s.items.length} horários • Brasília • ${s.items.length-sg-g1-loss-missing} pendentes • ${missing} sem dados${m?' • validação G1: '+pct(Math.round(m.score*m.test),m.test)+' ('+m.test+' amostras)':''}. Mesma cor para o contexto observado na geração; não conhece os pares futuros.`;
+ const m=s.model;$('#g1Meta').textContent=`${s.items.length} horários • Brasília • ${s.items.length-sg-g1-loss-missing} pendentes • ${missing} sem dados. ${m?.version==='322-minute-profile'?'Perfil por minuto da hora: 2 dias de treino, 1 de teste; seleção limitada à quantidade máxima. Não é previsão comprovada.':'Lista criada pelo motor anterior. Use RESETAR LISTA para gerar com o novo modelo.'}`;
 }
 function g1Update(){
  if(!g1State?.active)return;
@@ -218,10 +240,12 @@ function setupG1(){
   const request=++g1GenerationId,minutes=Number($('#g1Period').value),quantity=Number($('#g1Quantity').value);
   g1Generating=true;g1Render();$('#g1Message').textContent='Calculando…';
   try{
-   let rows=g1Rows(analysisRows,catalogRows);
-   if(rows.length<420||Date.now()-(rows.at(-1)?.ts||0)>180000)rows=g1Rows(rows,parse((await get('/api/rounds?limit=420')).data));
+   const profile=await g1LoadProfile(Date.now());
    if(request!==g1GenerationId)return;
-   g1State=g1Build(rows,minutes,quantity,Date.now());g1Save();$('#g1Message').textContent='Lista criada. Clique em ACOMPANHAR NO SITE para iniciar a apuração.';
+   let rows=g1Rows(analysisRows,catalogRows);
+   if(Date.now()-(rows.at(-1)?.ts||0)>180000)rows=g1Rows(rows,parse((await get('/api/rounds?limit=420')).data));
+   if(request!==g1GenerationId)return;
+   g1State=g1Build(profile,rows,minutes,quantity,Date.now());g1Save();$('#g1Message').textContent=`Lista criada: ${g1State.items.length} de até ${quantity} horários. Clique em ACOMPANHAR NO SITE para iniciar a apuração.`;
   }catch(e){if(request===g1GenerationId)$('#g1Message').textContent=e.message+(g1State?' A lista anterior foi mantida; use RESETAR LISTA para removê-la.':'');}
   finally{if(request===g1GenerationId){g1Generating=false;g1Render();}}
  });
