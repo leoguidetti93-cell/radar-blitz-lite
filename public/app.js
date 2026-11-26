@@ -129,7 +129,7 @@ function setupCatalogTools(){for(const [id,mode] of [['toolSelect','select'],['t
 
 // V3.0.20 — lista local G1; não modifica sugestões globais G2.
 const G1_KEY='rb320_g1_list',G1_MIN=60000,G1_WINDOW=4*G1_MIN;
-let g1State=null,g1Recovering=false,g1LastRecovery=0;
+let g1State=null,g1Recovering=false,g1LastRecovery=0,g1Generating=false,g1GenerationId=0;
 const g1Emoji=c=>c==='black'?'⚫':c==='white'?'⚪️':'🟡';
 const g1Time=t=>{const p=parts(t);return p.hour+':'+p.minute};
 const g1Win=(n,c)=>n===0||color(n)===c;
@@ -178,8 +178,8 @@ function g1Save(){try{if(g1State)localStorage.setItem(G1_KEY,JSON.stringify(g1St
 function g1Restore(){try{const s=JSON.parse(localStorage.getItem(G1_KEY)||'null');if(s&&Array.isArray(s.items)&&s.items.length<=20&&s.items.length&&s.items.every(x=>Number.isFinite(x.target)&&['yellow','black'].includes(x.c)&&['pending','SG','G1','LOSS','SEM DADOS'].includes(x.status)))g1State=s}catch{}}
 function g1Text(){return 'LISTA BLITZ RADAR G1\n\n'+g1State.items.map(x=>g1Time(x.target)+g1Emoji(x.c)+'⚪️').join('\n');}
 function g1Render(){
- const s=g1State;$('#g1List').classList.toggle('hidden',!s);$('#g1Copy').disabled=!s;$('#g1Follow').disabled=!s||!!s.active;$('#g1Stop').classList.toggle('hidden',!s?.active);$('#g1Generate').disabled=!!s?.active;
- if(!s)return;
+ const s=g1State;$('#g1List').classList.toggle('hidden',!s);$('#g1Copy').disabled=!s;$('#g1Follow').disabled=!s||!!s.active;$('#g1Stop').classList.toggle('hidden',!s?.active);$('#g1Generate').disabled=g1Generating||!!s?.active;$('#g1Reset').disabled=!s&&!g1Generating;
+ if(!s){for(const id of ['g1Rows','g1Stats','g1Meta','g1Status'])$('#'+id).textContent='';return;}
  $('#g1Status').textContent=s.active?'ACOMPANHANDO':'LISTA GERADA';
  const sg=s.items.filter(x=>x.status==='SG').length,g1=s.items.filter(x=>x.status==='G1').length,loss=s.items.filter(x=>x.status==='LOSS').length,missing=s.items.filter(x=>x.status==='SEM DADOS').length;
  $('#g1Stats').innerHTML=stat('SG',sg)+stat('G1',g1)+stat('LOSS',loss)+stat('ASSERTIVIDADE',pct(sg+g1,sg+g1+loss));
@@ -201,13 +201,30 @@ async function g1Recover(){
  try{const rows=g1Rows(await loadHistory(new Date(late[0].target-3*G1_MIN),new Date(late.at(-1).target+G1_WINDOW)),analysisRows,catalogRows);
   if(g1State!==state||!state.active)return;
   const targets=new Set(late.map(x=>x.target));state.items=state.items.map(x=>{if(!targets.has(x.target)||x.status!=='pending')return x;const y=g1Resolve(x,rows,now);return y===x?{...x,status:'SEM DADOS'}:y});g1Save();g1Render();catalog(catalogRows);
- }catch(e){$('#g1Message').textContent='Histórico indisponível; resultados pendentes serão reconsultados.'}finally{g1Recovering=false}
+ }catch(e){if(g1State===state&&state.active)$('#g1Message').textContent='Histórico indisponível; resultados pendentes serão reconsultados.'}finally{g1Recovering=false}
 }
 function g1Marks(){const m=new Map();if(g1State?.active)for(const x of g1State.items)if(x.roundId)m.set(x.roundId,x.status==='LOSS'?'g1-loss':x.status==='SG'||x.status==='G1'?'g1-win':'');return m;}
 function setupG1(){
  g1Restore();g1Render();if(g1State?.active)$('#g1Options').classList.remove('hidden');
  $('#toolG1').addEventListener('click',()=>{$('#g1Options').classList.toggle('hidden');$('#toolG1').classList.toggle('selected',!$('#g1Options').classList.contains('hidden'))});
- $('#g1Generate').addEventListener('click',async()=>{if(g1State?.active)return;const b=$('#g1Generate');b.disabled=true;$('#g1Message').textContent='Calculando…';try{let rows=g1Rows(analysisRows,catalogRows);if(rows.length<420||Date.now()-(rows.at(-1)?.ts||0)>180000)rows=g1Rows(rows,parse((await get('/api/rounds?limit=420')).data));g1State=g1Build(rows,Number($('#g1Period').value),Number($('#g1Quantity').value),Date.now());g1Save();$('#g1Message').textContent='Lista criada. Clique em ACOMPANHAR NO SITE para iniciar a apuração.';g1Render();}catch(e){$('#g1Message').textContent=e.message;}finally{b.disabled=!!g1State?.active}});
+ $('#g1Reset').addEventListener('click',()=>{
+  if(g1State?.active&&!window.confirm('Encerrar o acompanhamento e apagar esta lista e seus resultados locais?'))return;
+  ++g1GenerationId;g1Generating=false;g1State=null;g1LastRecovery=0;
+  $('#g1Message').textContent='Lista resetada. Escolha o período e a quantidade e gere uma nova lista.';
+  g1Save();g1Render();catalog(catalogRows);
+ });
+ $('#g1Generate').addEventListener('click',async()=>{
+  if(g1State?.active||g1Generating)return;
+  const request=++g1GenerationId,minutes=Number($('#g1Period').value),quantity=Number($('#g1Quantity').value);
+  g1Generating=true;g1Render();$('#g1Message').textContent='Calculando…';
+  try{
+   let rows=g1Rows(analysisRows,catalogRows);
+   if(rows.length<420||Date.now()-(rows.at(-1)?.ts||0)>180000)rows=g1Rows(rows,parse((await get('/api/rounds?limit=420')).data));
+   if(request!==g1GenerationId)return;
+   g1State=g1Build(rows,minutes,quantity,Date.now());g1Save();$('#g1Message').textContent='Lista criada. Clique em ACOMPANHAR NO SITE para iniciar a apuração.';
+  }catch(e){if(request===g1GenerationId)$('#g1Message').textContent=e.message+(g1State?' A lista anterior foi mantida; use RESETAR LISTA para removê-la.':'');}
+  finally{if(request===g1GenerationId){g1Generating=false;g1Render();}}
+ });
  $('#g1Copy').addEventListener('click',async()=>{if(!g1State)return;try{await navigator.clipboard.writeText(g1Text());$('#g1Message').textContent='Lista copiada.'}catch{const t=document.createElement('textarea');t.value=g1Text();$('#g1Options').append(t);t.select();const ok=document.execCommand('copy');t.remove();$('#g1Message').textContent=ok?'Lista copiada.':'Não foi possível copiar.'}});
  $('#g1Follow').addEventListener('click',()=>{if(!g1State)return;g1State.active=true;g1Save();g1Render();catalog(catalogRows);$('#g1Message').textContent='Acompanhamento ativo neste navegador.'});
  $('#g1Stop').addEventListener('click',()=>{if(!g1State)return;g1State.active=false;g1Save();g1Render();catalog(catalogRows);$('#g1Message').textContent='Acompanhamento encerrado. Lista mantida para consulta.'});
@@ -218,7 +235,7 @@ setupCatalogTools();setupG1();setupCollapse();restoreSnapshot();refresh(true);lo
 
 // V3.0.5 — leitura apenas de sinais oficiais gerados no Worker e persistidos no D1.
 const guideSections=[
-['01 • Ferramentas do catalogador','Selecione pedras, some valores a um horário editável ou analise sequências de 2 a 4 números. Use LIMPAR para voltar ao normal. A lista G1 é independente e local; ENCERRAR ACOMPANHAMENTO remove suas marcações.'],
+['01 • Ferramentas do catalogador','Selecione pedras, some valores a um horário editável ou analise sequências de 2 a 4 números. Use LIMPAR para voltar ao normal. A lista G1 é independente e local; ENCERRAR ACOMPANHAMENTO remove suas marcações. RESETAR LISTA apaga a lista local e seu placar, sem afetar outras ferramentas.'],
 ['03 • Frequência das cores','Mostra a proporção de branco, amarelo e preto no período escolhido. Compare com as proporções teóricas (6,67%, 46,67% e 46,67%).'],
 ['04 • Fluxo de brancos','Quantidade de brancos em blocos de 10, 15 ou 60 minutos; lacunas de coleta não devem ser tratadas como zero.'],
 ['05 • Intervalos entre brancos','Distribuição das quantidades de rodadas entre resultados brancos. Não indica quando o próximo branco deverá ocorrer.'],
