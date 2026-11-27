@@ -334,3 +334,70 @@ async function loadTemporal(){
 }
 $('#temporalPeriod').addEventListener('change',showTemporal);
 loadTemporal();setInterval(loadTemporal,1800000);
+
+// V3.0.23 — simulador local, sem API, sem execução de apostas.
+(()=>{
+'use strict';
+const by=id=>document.getElementById(id);
+const KEY='radar-blitz-bank-demo-v323';
+const MAX=100000000; // centavos fictícios de banca inicial
+const money=n=>(n/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+// BEGIN BANK MATH — valores inteiros em centavos. Na cor, blocos de 10 centavos
+// preservam a divisão 70/30 exatamente e produzem 4 centavos líquidos por bloco.
+function planFor(target,limit,mode,budget){
+ const unit=mode==='white'?1:10, profit=mode==='white'?13:4;
+ let spent=0;const stakes=[];
+ for(let i=0;i<limit;i++){
+  const amount=Math.max(1,Math.ceil((target+spent)/profit))*unit;
+  if(!Number.isSafeInteger(amount)||amount>budget-spent)return null;
+  stakes.push(amount);spent+=amount;
+ }
+ return {target,stakes,exposure:spent};
+}
+function bestPlan(budget,limit,mode){
+ if(!Number.isSafeInteger(budget)||budget<=0||!Number.isInteger(limit)||limit<1||limit>100||!['white','color'].includes(mode))return null;
+ let low=1,high=Math.min(Number.MAX_SAFE_INTEGER,mode==='white'?13*budget:Math.floor(budget/10)*4),best=null;
+ while(low<=high){const mid=Math.floor((low+high)/2),p=planFor(mid,limit,mode,budget);if(p){best=p;low=mid+1}else high=mid-1;}
+ return best;
+}
+function startDemo(initial,limit,mode){const p=bestPlan(initial,limit,mode);if(!p)return null;return {initial,balance:initial,limit,mode,cycle:1,step:0,lost:0,plan:p,history:[],done:false};}
+function settleDemo(s,outcome){
+ if(!s||s.done||!['loss','white','color'].includes(outcome)||(s.mode==='white'&&outcome==='color'))return null;
+ const stake=s.plan.stakes[s.step];if(!Number.isSafeInteger(stake)||stake<=0||stake>s.balance)return null;
+ const net=outcome==='loss'?-stake:s.mode==='white'?stake*13:outcome==='color'?stake/10*4:stake/10*32;
+ const balance=s.balance+net;if(!Number.isSafeInteger(balance))return null;
+ const next={...s,balance,history:[{cycle:s.cycle,step:s.step+1,outcome,stake,net,balance},...s.history].slice(0,200)};
+ if(outcome==='loss'){
+  next.lost+=stake;next.step++;
+  if(next.step>=s.limit)next.done=true;
+ }else{
+  next.lastCycleProfit=net-s.lost;
+  const plan=bestPlan(balance,s.limit,s.mode);
+  if(plan&&balance<=MAX){next.cycle++;next.step=0;next.lost=0;next.plan=plan;}else{next.done=true;next.step=s.limit;}
+ }
+ return next;
+}
+// END BANK MATH
+let state=null;
+function msg(t){by('bankMessage').textContent=t;}
+function save(){try{if(state)localStorage.setItem(KEY,JSON.stringify(state));else localStorage.removeItem(KEY);}catch{msg('Armazenamento local indisponível; a simulação não será preservada.');}}
+function restore(){try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&Number.isSafeInteger(s.initial)&&s.initial>0&&s.initial<=MAX&&Number.isSafeInteger(s.balance)&&s.balance>=0&&Number.isInteger(s.limit)&&s.limit>=1&&s.limit<=100&&['white','color'].includes(s.mode)&&Number.isInteger(s.step)&&s.step>=0&&s.step<=s.limit&&Number.isSafeInteger(s.lost)&&s.lost>=0&&Number.isInteger(s.cycle)&&s.cycle>=1&&typeof s.done==='boolean'&&Array.isArray(s.history)&&s.history.length<=200&&s.history.every(h=>Number.isInteger(h.cycle)&&Number.isInteger(h.step)&&['loss','white','color'].includes(h.outcome)&&Number.isSafeInteger(h.stake)&&Number.isSafeInteger(h.net)&&Number.isSafeInteger(h.balance))&&s.plan&&Number.isSafeInteger(s.plan.target)&&s.plan.target>0&&Array.isArray(s.plan.stakes)&&s.plan.stakes.length===s.limit&&s.plan.stakes.every(x=>Number.isSafeInteger(x)&&x>0)&&(s.done||s.step<s.limit&&s.plan.stakes[s.step]<=s.balance))state=s;}catch{state=null;}}
+function render(){
+ const s=state;by('bankLive').classList.toggle('hidden',!s);for(const id of ['bankMode','bankInitial','bankLimit','bankStart'])by(id).disabled=!!s;if(!s)return;
+ by('bankMode').value=s.mode;by('bankInitial').value=(s.initial/100).toFixed(2);by('bankLimit').value=s.limit;
+ const stake=s.done?0:s.plan.stakes[s.step];const color=s.mode==='color';
+ by('bankBalance').textContent=money(s.balance);by('bankNet').textContent=money(s.balance-s.initial);by('bankNet').className=s.balance>=s.initial?'bank-positive':'bank-negative';
+ by('bankTarget').textContent=money(s.plan.target);by('bankStep').textContent=`${s.done?'—':s.step+1}/${s.limit} • C${s.cycle}`;by('bankStake').textContent=s.done?'—':money(stake);by('bankLost').textContent=money(s.lost);
+ by('bankSplit').classList.toggle('hidden',!color);by('bankParts').textContent=s.done?'—':`${money(stake/10*7)} / ${money(stake/10*3)}`;
+ by('bankWin').classList.toggle('hidden',color);by('bankWinColor').classList.toggle('hidden',!color);by('bankWinWhite').classList.toggle('hidden',!color);
+ for(const id of ['bankWin','bankWinColor','bankWinWhite','bankLoss'])by(id).disabled=s.done;
+ const labels={loss:'LOSS',white:'WIN BRANCO',color:'WIN COR'};
+ by('bankHistory').innerHTML=`<p class="foot">Exposição máxima deste ciclo: ${money(s.plan.exposure)}. Alvo mínimo condicionado a um WIN; arredondamento pode aumentar o lucro em até 12 centavos no branco ou 3 centavos na cor. O histórico mantém os últimos 200 resultados.</p>`+(s.history.length?`<table><thead><tr><th>CICLO / ENTRADA</th><th>RESULTADO</th><th>VALOR</th><th>LÍQUIDO</th><th>SALDO</th></tr></thead><tbody>${s.history.map(h=>`<tr><td>${h.cycle} / ${h.step}</td><td class="${h.net>=0?'bank-positive':'bank-negative'}">${labels[h.outcome]}</td><td>${money(h.stake)}</td><td>${money(h.net)}</td><td>${money(h.balance)}</td></tr>`).join('')}</tbody></table>`:'<p class="foot">Nenhum resultado registrado.</p>');
+}
+function record(outcome){const next=settleDemo(state,outcome);if(!next){msg('Resultado inválido ou simulação encerrada.');return;}state=next;msg(state.done?'Ciclo encerrado. Nenhuma nova entrada será calculada.':outcome==='loss'?'Perda registrada. Próxima etapa simulada recalculada.':`Ciclo encerrado com resultado líquido de ${money(state.lastCycleProfit)}. Novo ciclo fictício calculado.`);save();render();}
+by('toolBank').addEventListener('click',()=>{const open=by('bankOptions').classList.toggle('hidden')===false;by('toolBank').classList.toggle('selected',open);by('toolBank').setAttribute('aria-expanded',String(open));});
+by('bankStart').addEventListener('click',()=>{const initialRaw=Number(by('bankInitial').value),initial=Math.round(initialRaw*100),limit=Number(by('bankLimit').value),mode=by('bankMode').value;if(!Number.isFinite(initialRaw)||initial<=0||initial>MAX||Math.abs(initialRaw*100-initial)>1e-5||!Number.isInteger(limit)||limit<1||limit>100){msg('Informe um saldo fictício de R$ 0,01 a R$ 1.000.000,00 e de 1 a 100 entradas.');return;}const next=startDemo(initial,limit,mode);if(!next){msg('Saldo fictício insuficiente para essa quantidade de entradas com lucro-alvo positivo em centavos. Reduza o limite de entradas.');return;}state=next;msg('Simulação iniciada. O lucro-alvo depende de um WIN no ciclo.');save();render();});
+for(const [id,outcome] of [['bankWin','white'],['bankWinWhite','white'],['bankWinColor','color'],['bankLoss','loss']])by(id).addEventListener('click',()=>record(outcome));
+by('bankReset').addEventListener('click',()=>{if(!state||!window.confirm('Apagar esta simulação e seu histórico local?'))return;state=null;msg('Simulação resetada.');save();render();});
+restore();render();
+})();
